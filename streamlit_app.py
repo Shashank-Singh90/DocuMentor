@@ -262,7 +262,7 @@ def main():
     <div style='text-align: center; color: #666; padding: 1rem;'>
         🧠 <strong>DocuMentor Demo</strong> - AI-Powered Documentation Assistant<br>
         <small>Built with Python, Streamlit, and advanced AI technologies</small><br>
-        <small>⭐ Star on GitHub | 🌐 Full version available with 13,606+ documentation chunks</small>
+        <small>⭐ <a href="https://github.com/Shashank-Singh90/DocuMentor" target="_blank">Star on GitHub</a> | 🌐 Full version available with 13,606+ documentation chunks</small>
     </div>
     """, unsafe_allow_html=True)
 
