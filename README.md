@@ -1,10 +1,10 @@
 # 🧠 DocuMentor - AI-Powered Documentation Assistant
 
-An intelligent documentation assistant powered by Llama 4 (67GB) that helps developers instantly find answers from multiple documentation sources.
+An intelligent documentation assistant powered by Gemma 3 (4B) that helps developers instantly find answers from multiple documentation sources.
 
 ## ✨ Features
 
-- 🤖 **Llama 4 Integration** - Latest 67GB multimodal model for superior responses
+- 🤖 **Gemma 3 Integration** - Powerful 4B parameter model for intelligent responses
 - 📚 **9+ Documentation Sources** - LangChain, FastAPI, React, Django, Node.js, and more
 - 🚀 **Fast Vector Search** - ChromaDB for instant documentation retrieval
 - 💬 **Streaming Responses** - Real-time AI responses with source citations
@@ -14,7 +14,7 @@ An intelligent documentation assistant powered by Llama 4 (67GB) that helps deve
 ## 🛠️ Tech Stack
 
 - **Backend**: Python, FastAPI
-- **AI Model**: Llama 4 (via Ollama)
+- **AI Model**: Gemma 3 (via Ollama)
 - **Vector DB**: ChromaDB
 - **Embeddings**: Sentence Transformers
 - **Frontend**: React (in development)
@@ -24,14 +24,14 @@ An intelligent documentation assistant powered by Llama 4 (67GB) that helps deve
 ### Prerequisites
 - Python 3.9+
 - Ollama installed
-- 70GB+ free disk space
-- 16GB+ RAM recommended
+- 8GB+ free disk space
+- 8GB+ RAM recommended
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/DocuMentor.git
+git clone https://github.com/Shashank-Singh90/DocuMentor.git
 cd DocuMentor
 ```
 
@@ -47,9 +47,9 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-4. Pull Llama 4 model:
+4. Pull Gemma 3 model:
 ```bash
-ollama pull llama4:16x17b
+ollama pull gemma3:4b
 ```
 
 5. Configure environment:
@@ -75,7 +75,7 @@ python api_server.py
 
 ## 🎯 Roadmap
 
-- [x] Llama 4 integration
+- [x] Gemma 3 integration
 - [x] FastAPI backend
 - [x] Vector search implementation
 - [x] Document upload
@@ -95,10 +95,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Meta for Llama 4
+- Google for Gemma 3
 - Ollama team for local LLM support
 - All documentation providers
 
 ---
 
-**Note**: This project requires significant computational resources due to the 67GB Llama 4 model.
+**Note**: This project works best with at least 8GB RAM for optimal performance with the Gemma 3 4B model.
