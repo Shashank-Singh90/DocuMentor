@@ -38,9 +38,7 @@ class ChromaVectorStore:
         )
         
         # Create embedding function for queries (ChromaDB handles this)
-        self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=self.embedding_model
-        )
+        self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
         
         # Get or create collection
         self.collection = self._get_or_create_collection()

@@ -238,9 +238,20 @@ async def ask_question(request: QuestionRequest):
             filter_dict=filters if filters else None
         )
         
+        # Always call Gemma 3, even with no search results
+        if hasattr(llm_handler, 'generate_answer'):
+            answer = llm_handler.generate_answer(
+                question=request.question,
+                search_results=search_results if search_results else [],
+                max_tokens=request.max_tokens,
+                temperature=request.temperature
+            )
+        else:
+            answer = f"I couldn't find specific information about '{request.question}' in the available documentation. Try rephrasing your question or check if it's related to our supported technologies: LangChain, FastAPI, Django, React, Python, Docker, PostgreSQL, MongoDB, TypeScript, or your uploaded documents."
+
         if not search_results:
             return QuestionResponse(
-                answer=f"I couldn't find specific information about '{request.question}' in the available documentation. Try rephrasing your question or check if it's related to our supported technologies: LangChain, FastAPI, Django, React, Python, Docker, PostgreSQL, MongoDB, TypeScript, or your uploaded documents.",
+                answer=answer,
                 sources=[],
                 confidence=0.0,
                 response_time=time.time() - start_time_req,

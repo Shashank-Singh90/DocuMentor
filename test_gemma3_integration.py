@@ -1,5 +1,5 @@
 """
-Test Llama 4 Integration with DocuMentor
+Test Gemma 3 Integration with DocuMentor
 Run this to verify everything is working correctly
 """
 import sys
@@ -14,20 +14,20 @@ import time
 logger = get_logger(__name__)
 
 def test_llama4_integration():
-    """Complete integration test for Llama 4"""
-    print("🧪 Testing Llama 4 Integration with DocuMentor")
+    """Complete integration test for Gemma 3"""
+    print("🧪 Testing Gemma 3 Integration with DocuMentor")
     print("=" * 50)
     
     # Step 1: Check Ollama and Model
     print("\n1️⃣ Checking Ollama Connection...")
     try:
-        handler = OllamaLLMHandler(model_name="llama4:16x17b")
+        handler = OllamaLLMHandler(model_name="gemma3:4b")
         status = handler.check_model_status()
         
         if status['status'] == 'available':
-            print(f"✅ Llama 4 Model Found: {status['model']}")
+            print(f"✅ Gemma 3 Model Found: {status['model']}")
             print(f"   Size: {status['size'] / (1024**3):.1f} GB")
-            print(f"   Family: {status.get('family', 'Llama 4')}")
+            print(f"   Family: {status.get('family', 'Gemma 3')}")
         else:
             print(f"❌ Model Status: {status}")
             return False
@@ -49,7 +49,7 @@ def test_llama4_integration():
         return False
     
     # Step 3: Test Question Answering
-    print("\n3️⃣ Testing Question Answering with Llama 4...")
+    print("\n3️⃣ Testing Question Answering with Gemma 3...")
     test_question = "What is FastAPI and how do I create a simple API endpoint?"
     
     try:
@@ -60,8 +60,8 @@ def test_llama4_integration():
         if search_results:
             print(f"   Found {len(search_results)} relevant documents")
             
-            # Generate answer with Llama 4
-            print("   Generating answer with Llama 4...")
+            # Generate answer with Gemma 3
+            print("   Generating answer with Gemma 3...")
             start_time = time.time()
             
             answer = handler.generate_answer(
@@ -98,7 +98,7 @@ def test_llama4_integration():
         print("⚠️  API Server not running - start with: python api_server.py")
     
     print("\n" + "=" * 50)
-    print("🎉 Llama 4 Integration Test Complete!")
+    print("🎉 Gemma 3 Integration Test Complete!")
     return True
 
 if __name__ == "__main__":
