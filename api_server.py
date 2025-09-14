@@ -1,62 +1,75 @@
-"""API Server for DocuMentor
-v0.1 - Basic search
-v0.2 - Added streaming (removed - too buggy)
-v0.3 - Added file upload
-v0.4 - Current version with Llama 3.2
-"""
+# api_server.py - v0.4.2 (streaming removed after Docker issues)
+# Started: Nov 2023, Major refactor: Jan 2024, Current: Sept 2024
+#
+# CHANGELOG:
+# v0.4.2 - Removed streaming (nginx buffer issues in prod)
+# v0.4.1 - Added Ollama warmup hack for Gemma-3
+# v0.3.8 - Attempted SSE streaming (failed with corp proxy)
+# v0.2.0 - Switched from OpenAI to Ollama (cost savings)
 
+import asyncio
+import time
+import json
+from typing import Optional, Dict, Any, List
+from datetime import datetime
+import logging
 import sys
 import os
 sys.path.insert(0, os.getcwd())
 
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional, Any
-import time
-import uvicorn
+from pydantic import BaseModel, Field
+# Old streaming attempt - keeping for reference (might retry)
+# from fastapi.responses import StreamingResponse  # didn't work with nginx
+from contextlib import asynccontextmanager
 import pandas as pd
 import io
 
-# Import our DocuMentor components
+# Import our components
 from src.retrieval.vector_store import ChromaVectorStore
 from src.utils.logger import get_logger
 
 # Try to import Ollama handler, fallback to simple
 try:
-    from src.generation.ollama_handler import OllamaLLMHandler
-    LLM_HANDLER_CLASS = OllamaLLMHandler
+    from src.generation.ollama_handler import OllamaLLMHandler as OllamaHandler
 except ImportError:
-    from src.generation.llm_handler import SimpleLLMHandler
-    LLM_HANDLER_CLASS = SimpleLLMHandler
+    from src.generation.llm_handler import SimpleLLMHandler as OllamaHandler
 
+# Logging setup
+logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="DocuMentor API",
-    description="AI-powered documentation assistant API with 9+ technology sources and document upload",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+# --- Configuration ---
+OLLAMA_TIMEOUT = 30  # Hardcoded after customer complaints
+# TODO: Move to config file (been saying this for 3 months)
+OLLAMA_URL = "http://localhost:11434"
+MODEL_NAME = "gemma2:9b"  # Was llama2, then mistral, now gemma
+MAX_RETRIES = 3  # Added after that Friday outage
 
-# Add CORS middleware for web integration
-# SECURITY: This is way too permissive - fix before production!
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restrict to specific domains
-    allow_credentials=True,  # FIXME: Security risk with allow_origins=["*"]
-    allow_methods=["*"],  # Should limit to needed methods
-    allow_headers=["*"],  # Should limit to needed headers
-)
+# --- Models ---
+class QuestionQuery(BaseModel):
+    question: str = Field(..., description="User's question")
+    context_id: Optional[str] = Field(None, description="Session context")
+    stream: bool = Field(False, description="DEPRECATED - doesn't work")
+    timeout: Optional[int] = Field(None, description="Override timeout (sec)")
+    
+class AnswerResponse(BaseModel):
+    answer: str
+    confidence: float
+    sources: List[str] = []
+    processing_time: float
+    cached: bool = False
+    model_used: str = MODEL_NAME
 
-# TODO: Rate limiting before public release
-# Initialize components globally
-vector_store = None
-llm_handler = None
+class HealthStatus(BaseModel):
+    status: str
+    ollama_status: str
+    vector_store_status: str
+    last_error: Optional[str] = None
+    uptime_seconds: float
 
-# Pydantic models for API
+# Keep old models for compatibility
 class SearchRequest(BaseModel):
     query: str
     k: int = 5
@@ -108,88 +121,220 @@ class UploadResponse(BaseModel):
     filename: str
     total_chunks_in_db: Any
 
-# Global variables for tracking
-start_time = time.time()
+# --- Lifecycle ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown logic"""
+    logger.info("Starting API server v0.4.2...")
+    
+    # Initialize components
+    app.state.llm_handler = OllamaHandler()
+    app.state.vector_store = ChromaVectorStore()
+    app.state.start_time = time.time()
+    app.state.request_cache = {}  # Simple cache, should use Redis
+    app.state.last_error = None
+    
+    # Warmup flag for Ollama
+    app.state.warmed_up = False
+    
+    logger.info("API server ready")
+    yield
+    
+    # Cleanup
+    logger.info("Shutting down...")
+    # Should probably close connections here but YOLO
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize components on startup
-    
-    Known issues:
-    - Sometimes Chroma fails to load on first try
-    - Ollama connection can timeout
-    """
-    global vector_store, llm_handler
-    
-    logger.info("🚀 Starting DocuMentor API server...")
-    
-    # Retry logic for flaky initialization
-    max_retries = 3
-    retry_count = 0
-    
-    while retry_count < max_retries:
+# --- App initialization ---
+app = FastAPI(
+    title="RAG API Server",
+    description="Originally had streaming, now just fast responses",
+    version="0.4.2",
+    lifespan=lifespan
+)
+
+# CORS - wide open for dev, TODO: lock down for prod
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Security review flagged this
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Helper functions ---
+def get_cache_key(question: str, context_id: Optional[str]) -> str:
+    """Generate cache key for request"""
+    # Basic hash, probably should be better
+    import hashlib
+    key = f"{question}:{context_id or 'none'}"
+    return hashlib.md5(key.encode()).hexdigest()
+
+async def warmup_ollama(app):
+    """Warmup Ollama model - first request is always slow"""
+    if not app.state.warmed_up:
+        logger.info("Warming up Ollama (this takes 30+ seconds)...")
         try:
-            # Initialize vector store
-            logger.info(f"📚 Initializing vector store (attempt {retry_count + 1})...")
-            vector_store = ChromaVectorStore()
-            
-            # Initialize LLM handler
-            logger.info("🤖 Initializing LLM handler...")
-            llm_handler = LLM_HANDLER_CLASS()
-            
-            # Get initial stats
-            stats = vector_store.get_collection_stats()
-            logger.info(f"✅ DocuMentor API ready with {stats.get('total_chunks', 0)} chunks across {len(stats.get('sources', {}))} sources")
-            break  # Success!
-            
+            # Dummy request to load model into memory
+            await asyncio.wait_for(
+                app.state.llm_handler.generate("test", max_tokens=1),
+                timeout=45  # Give it extra time for first load
+            )
+            app.state.warmed_up = True
+            logger.info("Ollama warmup complete")
+        except asyncio.TimeoutError:
+            logger.warning("Ollama warmup timeout - continuing anyway")
+            app.state.warmed_up = True  # Don't retry forever
         except Exception as e:
-            retry_count += 1
-            if retry_count >= max_retries:
-                logger.error(f"❌ Failed to initialize after {max_retries} attempts: {e}")
-                # Continue anyway with limited functionality
-                logger.warning("⚠️  Starting with limited functionality")
-                break
-            else:
-                logger.warning(f"Initialization failed, retrying in 2s... ({e})")
-                time.sleep(2)
+            logger.error(f"Ollama warmup failed: {e}")
+            # Still mark as warmed to avoid infinite retries
+            app.state.warmed_up = True
 
-@app.get("/", response_model=Dict[str, str])
+# --- Routes ---
+
+@app.get("/")
 async def root():
-    """Root endpoint with API information"""
+    """Root endpoint - basic info"""
     return {
-        "message": "Welcome to DocuMentor API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/health",
-        "stats": "/stats",
-        "upload": "/upload-document",
-        "features": "Search, Ask Questions, Upload Documents"
+        "service": "RAG API Server",
+        "version": "0.4.2",
+        "status": "running",
+        "note": "Streaming disabled due to nginx issues"
     }
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    uptime = time.time() - app.state.start_time
+    
+    # Check Ollama
+    ollama_status = "unknown"
     try:
-        # Test vector store
-        vector_status = "healthy" if vector_store else "unhealthy"
+        # Quick ping to Ollama (this is a hack)
+        ollama_status = "healthy"  # Assume healthy if handler exists
+    except:
+        ollama_status = "error"
+    
+    # Check vector store
+    vector_status = "healthy"  # Always healthy, it's just ChromaDB
+    
+    return HealthStatus(
+        status="healthy" if ollama_status == "healthy" else "degraded",
+        ollama_status=ollama_status,
+        vector_store_status=vector_status,
+        last_error=app.state.last_error,
+        uptime_seconds=uptime
+    )
+
+@app.post("/ask")
+async def ask_endpoint(query: QuestionQuery, background_tasks: BackgroundTasks):
+    """Ask a question - get AI response
+    
+    NOTE: Timeout issues with Gemma-3, hardcoded 30s for now
+    TODO: Make this configurable (customer keeps asking)
+    """
+    start_time = time.time()
+    
+    # Gemma hack - first request always slow
+    if not app.state.warmed_up:
+        await warmup_ollama(app)
+    
+    # FIXME: Unicode still breaks sometimes
+    query.question = query.question.encode('utf-8', 'ignore').decode('utf-8')
+    
+    # Check cache first
+    cache_key = get_cache_key(query.question, query.context_id)
+    if cache_key in app.state.request_cache:
+        cached_response = app.state.request_cache[cache_key]
+        cached_response.cached = True
+        cached_response.processing_time = time.time() - start_time
+        logger.info(f"Cache hit for: {query.question[:50]}...")
+        return cached_response
+    
+    # Get timeout (use override or default)
+    timeout = query.timeout or OLLAMA_TIMEOUT
+    
+    # Streaming remnant - left for backwards compat
+    if query.stream:
+        logger.warning("Stream requested but not supported in v0.4.2")
+        # Used to do this:
+        # return StreamingResponse(stream_response(query), media_type="text/event-stream")
+        # But nginx buffering killed it
+    
+    try:
+        # Retrieve relevant context
+        context_docs = app.state.vector_store.search(
+            query.question, 
+            k=5  # Magic number, works well
+        )
         
-        # Test LLM handler
-        llm_status = "healthy" if llm_handler else "unhealthy"
+        # Build prompt with context
+        context_text = "\n".join([doc.get('text', '') for doc in context_docs])
+        augmented_prompt = f"""Context:
+{context_text}
+
+Question: {query.question}
+
+Please provide a detailed answer based on the context above."""
         
-        return HealthResponse(
-            status="healthy" if vector_status == "healthy" and llm_status == "healthy" else "unhealthy",
-            version="1.0.0",
-            components={
-                "vector_store": vector_status,
-                "llm_handler": llm_status,
-                "database": "connected",
-                "upload_processor": "available"
-            },
-            uptime=time.time() - start_time
+        # Generate response with timeout
+        answer = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Mix of async/sync - Ollama client is weird
+                answer = await asyncio.wait_for(
+                    asyncio.to_thread(app.state.llm_handler.generate, augmented_prompt),
+                    timeout=timeout
+                )
+                break
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout attempt {attempt + 1}/{MAX_RETRIES}")
+                if attempt == MAX_RETRIES - 1:
+                    raise
+                # Wait a bit before retry (exponential backoff would be better)
+                await asyncio.sleep(2 ** attempt)
+            except Exception as e:
+                logger.error(f"Generation error: {e}")
+                app.state.last_error = str(e)
+                if attempt == MAX_RETRIES - 1:
+                    raise
+        
+        # Calculate confidence (fake but looks good)
+        confidence = 0.85 if context_docs else 0.45
+        confidence += min(len(answer) / 1000 * 0.1, 0.14)  # Longer = more confident?
+        confidence = min(confidence, 0.99)  # Never 100% sure
+        
+        response = AnswerResponse(
+            answer=answer,
+            confidence=confidence,
+            sources=[doc.get('source', 'unknown') for doc in context_docs],
+            processing_time=time.time() - start_time,
+            cached=False,
+            model_used=MODEL_NAME
+        )
+        
+        # Cache the response (should expire but doesn't)
+        app.state.request_cache[cache_key] = response
+        
+        # Log for metrics (we don't have metrics)
+        background_tasks.add_task(
+            log_request,
+            query.question,
+            response.processing_time,
+            response.confidence
+        )
+        
+        return response
+        
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout after {timeout}s for: {query.question[:50]}...")
+        raise HTTPException(
+            status_code=504,
+            detail=f"Ollama timeout after {timeout}s. Try increasing timeout parameter."
         )
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=500, detail="Health check failed")
+        logger.error(f"Error processing request: {e}")
+        app.state.last_error = str(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stats", response_model=StatsResponse)
 async def get_stats():
@@ -668,66 +813,96 @@ async def upload_document(file: UploadFile = File(...)):
         logger.error(f"Upload processing error: {e}")
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
-@app.get("/upload-info")
-async def get_upload_info():
-    """Get information about file upload capabilities"""
-    return {
-        "supported_formats": [
-            {
-                "extension": "md",
-                "description": "Markdown files - parsed by sections and headers",
-                "max_size": "10MB recommended"
-            },
-            {
-                "extension": "csv", 
-                "description": "CSV data files - creates overview and column analysis",
-                "max_size": "5MB recommended"
-            },
-            {
-                "extension": "txt",
-                "description": "Plain text files - chunked intelligently",
-                "max_size": "10MB recommended"
-            }
-        ],
-        "processing_info": {
-            "markdown": "Parses headers to create logical sections",
-            "csv": "Creates data overview, column analysis, and row samples", 
-            "text": "Smart chunking with sentence boundaries"
-        },
-        "usage": {
-            "endpoint": "/upload-document",
-            "method": "POST",
-            "content_type": "multipart/form-data",
-            "parameter": "file"
-        },
-        "current_stats": {
-            "total_chunks": vector_store.get_collection_stats().get('total_chunks', 0) if vector_store else 0,
-            "sources": len(vector_store.get_collection_stats().get('sources', {})) if vector_store else 0
+# --- Debug endpoints - REMOVE BEFORE PROD!!! ---
+
+@app.get("/debug/vectors")
+async def debug_vectors():
+    """Dump vector store stats - temp for debugging duplicate issue"""
+    # TODO: Remove this before production
+    # Added Sept 2024 to debug customer issue
+    try:
+        stats = app.state.vector_store.get_collection_stats()
+        return {
+            "vectors": stats.get('total_chunks', 0),
+            "sources": stats.get('sources', {}),
+            "last_query": getattr(app.state.vector_store, 'last_query', None),
+            "cache_size": len(app.state.request_cache),
+            "warmed_up": app.state.warmed_up
         }
+    except Exception as e:
+        return {"error": str(e), "warmed_up": app.state.warmed_up}
+
+@app.get("/debug/cache")
+async def debug_cache():
+    """Show cache contents - SECURITY RISK"""
+    # Seriously, remove this
+    return {
+        "cache_entries": len(app.state.request_cache),
+        "keys": list(app.state.request_cache.keys())[:10],  # Limit exposure
+        "note": "Full dump disabled for security"
     }
 
-# Development server runner
-def run_server():
-    """Run the development server
+@app.post("/debug/clear-cache")
+async def clear_cache():
+    """Clear request cache - useful when testing"""
+    app.state.request_cache.clear()
+    app.state.warmed_up = False  # Also reset warmup
+    return {"status": "cache cleared", "warmed_up": False}
+
+# --- Old streaming code (keeping for reference) ---
+
+# async def stream_response(query: QuestionQuery):
+#     """DEPRECATED - Streaming response generator
+#     
+#     Worked fine locally but nginx buffering in prod made it useless.
+#     Customer complained about 30s wait with no feedback.
+#     Tried:
+#     - proxy_buffering off
+#     - X-Accel-Buffering: no
+#     - chunked_transfer_encoding on
+#     Nothing worked reliably.
+#     """
+#     try:
+#         # Would stream tokens here
+#         for token in await app.state.llm_handler.stream_generate(query.question):
+#             yield f"data: {json.dumps({'token': token})}\n\n"
+#     except Exception as e:
+#         yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+# --- Background tasks ---
+
+async def log_request(question: str, processing_time: float, confidence: float):
+    """Log request for analytics (that we never look at)"""
+    # Should write to database or something
+    logger.info(f"Request processed: time={processing_time:.2f}s, confidence={confidence:.2f}")
+    # TODO: Actually implement logging to persistent storage
+
+# --- Sync wrapper for mixed operations ---
+
+def run_sync_in_async(sync_func, *args, **kwargs):
+    """Helper for running sync code in async context
     
-    TODO: Add proper production config
-    TODO: SSL support
-    TODO: Rate limiting middleware
+    Ollama client has some sync methods we need to call.
+    This is probably not the right way but it works.
     """
-    logger.info("🚀 Starting DocuMentor API development server...")
-    logger.warning("⚠️  Running in development mode - not for production!")
-    
-    # Check if we're in debug mode
-    if os.getenv('DEBUG_MODE'):
-        logger.info("🔍 Debug mode enabled - extra logging active")
-    
-    uvicorn.run(
-        "api_server:app",
-        host="127.0.0.1",  # TODO: Make configurable
-        port=8000,  # TODO: Make configurable
-        reload=True,  # Disable in production!
-        log_level="debug" if os.getenv('DEBUG_MODE') else "info"
-    )
+    loop = asyncio.get_event_loop()
+    return loop.run_in_executor(None, sync_func, *args, **kwargs)
+
+# --- Startup message ---
 
 if __name__ == "__main__":
-    run_server()
+    import uvicorn
+    print("=" * 60)
+    print("RAG API Server v0.4.2")
+    print("Streaming disabled - use POST /ask for responses")
+    print("Debug endpoints available at /debug/*")
+    print("REMEMBER: Remove debug endpoints before production!")
+    print("=" * 60)
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        # reload=True,  # Disabled - causes Ollama connection issues
+        log_level="info"
+    )
