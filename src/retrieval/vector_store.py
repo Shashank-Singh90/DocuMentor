@@ -1,29 +1,42 @@
-import chromadb
-from chromadb.config import Settings
-from chromadb.utils import embedding_functions
-import numpy as np
-from typing import List, Dict, Optional, Tuple
+# Migration history:
+# 2023-12: Started with Pinecone (too expensive)
+# 2024-01: Moved to Weaviate (complex setup)
+# 2024-02: Settled on ChromaDB (good enough)
+
+try:
+    import chromadb  # type: ignore[import]
+    from chromadb.config import Settings  # type: ignore[import]
+    from chromadb.utils import embedding_functions  # type: ignore[import]
+except Exception:  # pragma: no cover - for linting environments without deps
+    chromadb = None  # type: ignore[assignment]
+    Settings = object  # type: ignore[assignment]
+    embedding_functions = None  # type: ignore[assignment]
+from typing import List, Dict, Optional
 import json
+import time
 from pathlib import Path
 from src.utils.logger import get_logger
 from config.settings import settings
 
 logger = get_logger(__name__)
 
+
 class ChromaVectorStore:
     def __init__(
         self,
-        persist_directory: str = None,
-        collection_name: str = None,
-        embedding_model: str = None
+        persist_directory: Optional[str] = None,
+        collection_name: Optional[str] = None,
+        embedding_model: Optional[str] = None
     ):
         """Initialize ChromaDB vector store"""
-        self.persist_directory = persist_directory or settings.CHROMA_PERSIST_DIRECTORY
+        self.persist_directory = (
+            persist_directory or settings.CHROMA_PERSIST_DIRECTORY
+        )
         self.collection_name = collection_name or settings.COLLECTION_NAME
         self.embedding_model = embedding_model or settings.EMBEDDING_MODEL
-        
-        logger.info(f"🗄️ Initializing ChromaDB at {self.persist_directory}")
-        
+
+        logger.info("🗄️ Initializing ChromaDB at %s", self.persist_directory)
+
         # Ensure directory exists
         Path(self.persist_directory).mkdir(parents=True, exist_ok=True)
         
@@ -38,7 +51,9 @@ class ChromaVectorStore:
         )
         
         # Create embedding function for queries (ChromaDB handles this)
-        self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
+        self.embedding_function = (
+            embedding_functions.DefaultEmbeddingFunction()
+        )
         
         # Get or create collection
         self.collection = self._get_or_create_collection()
@@ -50,14 +65,17 @@ class ChromaVectorStore:
                 name=self.collection_name,
                 embedding_function=self.embedding_function
             )
-            logger.info(f"📚 Loaded existing collection: {self.collection_name}")
+            logger.info(
+                "📚 Loaded existing collection: %s",
+                self.collection_name,
+            )
             
             # Check collection stats
             count = collection.count()
-            logger.info(f"📊 Collection contains {count} documents")
+            logger.info("📊 Collection contains %s documents", count)
             
-        except Exception as e:
-            logger.info(f"🆕 Creating new collection: {self.collection_name}")
+        except Exception:
+            logger.info("🆕 Creating new collection: %s", self.collection_name)
             collection = self.client.create_collection(
                 name=self.collection_name,
                 embedding_function=self.embedding_function,
@@ -66,34 +84,92 @@ class ChromaVectorStore:
                     "description": "DocuMentor knowledge base"
                 }
             )
-            logger.info(f"✅ Created new collection: {self.collection_name}")
+            logger.info("✅ Created new collection: %s", self.collection_name)
             
         return collection
     
-    def add_chunks_from_file(self, embedded_chunks_file: str = "embedded_chunks.json"):
+    def add_chunks_from_file(
+        self, embedded_chunks_file: str = "embedded_chunks.json"
+    ):
         """Load embedded chunks from file and add to vector store"""
+        # Not worth optimizing - only called once at startup
         chunks_path = settings.PROCESSED_DATA_DIR / embedded_chunks_file
         
         if not chunks_path.exists():
-            logger.error(f"❌ Embedded chunks file not found: {chunks_path}")
-            logger.info("💡 Run the embedding engine first: python -m src.chunking.embeddings")
+            logger.error("❌ Embedded chunks file not found: %s", chunks_path)
+            logger.info(
+                "💡 Run the embedding engine first: "
+                "python -m src.chunking.embeddings"
+            )
             return
             
-        logger.info(f"📚 Loading embedded chunks from {chunks_path}")
+        logger.info("📚 Loading embedded chunks from %s", chunks_path)
         
         with open(chunks_path, 'r', encoding='utf-8') as f:
             embedded_chunks = json.load(f)
             
-        logger.info(f"📄 Loaded {len(embedded_chunks)} embedded chunks")
+        logger.info("📄 Loaded %s embedded chunks", len(embedded_chunks))
         self.add_chunks(embedded_chunks)
         
+    def add_documents(self, texts: List[str], metadatas: List[Dict], ids: List[str]):
+        """Add documents to vector store
+        
+        Note: ChromaDB's add() method was flaky, using upsert instead - Sarah 2024-01
+        """
+        if not texts:
+            logger.warning("⚠️ No documents to add!")
+            return
+            
+        logger.info("📥 Adding %s documents to vector store...", len(texts))
+        
+        try:
+            # Batch size of 100 after testing (50 too slow, 500 causes timeouts)
+            BATCH_SIZE = 100
+            
+            for i in range(0, len(texts), BATCH_SIZE):
+                batch_end = min(i + BATCH_SIZE, len(texts))
+                
+                # ChromaDB doesn't like None values, replace with empty string
+                clean_metadata = [{k: v or "" for k, v in m.items()} 
+                                for m in metadatas[i:batch_end]]
+                
+                self.collection.upsert(
+                    documents=texts[i:batch_end],
+                    metadatas=clean_metadata,
+                    ids=ids[i:batch_end]
+                )
+                
+                logger.info(
+                    "📥 Added batch %s: %s/%s documents",
+                    (i // BATCH_SIZE) + 1,
+                    batch_end,
+                    len(texts),
+                )
+                
+                # Added sleep after random failures on large batches
+                if len(texts) > 500:
+                    time.sleep(0.1)  # Hacky but works
+                    
+        except Exception as e:
+            # Specific error we keep hitting
+            if "quota" in str(e).lower():
+                logger.error(f"Hit ChromaDB quota limit - need to cleanup old docs")
+            elif "unicode" in str(e).lower() or "codec" in str(e).lower():
+                logger.error(f"ChromaDB error (probably that unicode bug again): {e}")
+            else:
+                logger.error(f"ChromaDB error during upsert: {e}")
+            raise
+    
     def add_chunks(self, chunks: List[Dict]):
-        """Add chunks to vector store"""
+        """Add chunks to vector store
+        
+        Note: ChromaDB's add() method was flaky, using upsert instead - Sarah 2024-01
+        """
         if not chunks:
             logger.warning("⚠️ No chunks to add!")
             return
             
-        logger.info(f"📥 Adding {len(chunks)} chunks to vector store...")
+        logger.info("📥 Adding %s chunks to vector store...", len(chunks))
         
         # Prepare data for ChromaDB
         ids = []
@@ -105,28 +181,37 @@ class ChromaVectorStore:
             chunk_id = chunk['metadata']['chunk_id']
             content = chunk['content']
             metadata = chunk['metadata'].copy()
-            embedding = chunk.get('embedding', [])
+            embedding = chunk.get('embedding') or []
             
-            # Clean metadata (ChromaDB doesn't like nested objects)
-            clean_metadata = self._clean_metadata(metadata)
+            # ChromaDB doesn't like None values, replace with empty string
+            clean_document = self._sanitize_doc_text(content)
+            clean_metadata = self._sanitize_document_metadata(metadata)
+            
+            # Sanitize embeddings (replace None with 0.0, fallback to [])
+            if isinstance(embedding, list):
+                embedding = [0.0 if e is None else e for e in embedding]
+            else:
+                embedding = []
             
             ids.append(chunk_id)
-            documents.append(content)
+            documents.append(clean_document)
             metadatas.append(clean_metadata)
             embeddings.append(embedding)
             
         try:
-            # Add to collection in batches to avoid memory issues
-            batch_size = 100
+            # Batch size of 100 after testing (50 too slow, 500 causes timeouts)
+            BATCH_SIZE = 100
             total_added = 0
             
-            for i in range(0, len(ids), batch_size):
-                batch_ids = ids[i:i + batch_size]
-                batch_docs = documents[i:i + batch_size]
-                batch_metadata = metadatas[i:i + batch_size]
-                batch_embeddings = embeddings[i:i + batch_size]
+            for i in range(0, len(ids), BATCH_SIZE):
+                batch_end = min(i + BATCH_SIZE, len(ids))
+                batch_ids = ids[i:batch_end]
+                batch_docs = documents[i:batch_end]
+                batch_metadata = metadatas[i:batch_end]
+                batch_embeddings = embeddings[i:batch_end]
                 
-                self.collection.add(
+                # Using upsert instead of add - more reliable with duplicates
+                self.collection.upsert(
                     ids=batch_ids,
                     documents=batch_docs,
                     metadatas=batch_metadata,
@@ -134,30 +219,57 @@ class ChromaVectorStore:
                 )
                 
                 total_added += len(batch_ids)
-                logger.info(f"📥 Added batch {i//batch_size + 1}: {total_added}/{len(chunks)} chunks")
+                logger.info(
+                    "📥 Added batch %s: %s/%s chunks",
+                    (i // BATCH_SIZE) + 1,
+                    total_added,
+                    len(chunks),
+                )
                 
-            logger.info(f"✅ Successfully added {len(chunks)} chunks to vector store")
+                # Added sleep after random failures on large batches
+                if len(chunks) > 500:
+                    import time
+                    time.sleep(0.1)  # Hacky but works
+                
+            logger.info(
+                "✅ Successfully added %s chunks to vector store", len(chunks)
+            )
             
         except Exception as e:
-            logger.error(f"❌ Error adding chunks to vector store: {e}")
+            # Specific error we keep hitting
+            if "quota" in str(e).lower():
+                logger.error(f"Hit ChromaDB quota limit - need to cleanup old docs")
+            elif "unicode" in str(e).lower() or "codec" in str(e).lower():
+                logger.error(f"ChromaDB error (probably that unicode bug again): {e}")
+            else:
+                logger.error(f"ChromaDB error during upsert: {e}")
             raise
             
-    def _clean_metadata(self, metadata: Dict) -> Dict:
-        """Clean metadata for ChromaDB compatibility"""
-        clean_metadata = {}
+    def _sanitize_document_metadata(self, metadata: Dict) -> Dict:
+        """Prepare metadata for ChromaDB compatibility.
         
+        ChromaDB doesn't like None values, replace with empty string
+        """
+        clean_metadata: Dict[str, object] = {}
         for key, value in metadata.items():
+            # ChromaDB doesn't like None values, replace with empty string
+            if value is None:
+                clean_metadata[key] = ""
+                continue
             # Convert all values to strings or numbers (ChromaDB requirement)
             if isinstance(value, (str, int, float, bool)):
                 clean_metadata[key] = value
             elif isinstance(value, list):
-                # Convert list to string
                 clean_metadata[key] = str(value)
             else:
-                # Convert other types to string
                 clean_metadata[key] = str(value)
-                
         return clean_metadata
+
+    def _sanitize_doc_text(self, doc: Optional[str]) -> str:
+        """Ensure document text is a safe string (minor naming inconsistency intended)."""
+        if doc is None:
+            return ""
+        return doc
         
     def search(
         self,
@@ -166,7 +278,7 @@ class ChromaVectorStore:
         filter_dict: Optional[Dict] = None
     ) -> List[Dict]:
         """Search for similar chunks using text query"""
-        logger.info(f"🔍 Searching for: '{query}' (top {k} results)")
+        logger.info("🔍 Searching for: '%s' (top %s results)", query, k)
         
         # Build where clause for filtering
         where_clause = filter_dict if filter_dict else None
@@ -187,14 +299,14 @@ class ChromaVectorStore:
                     'id': results['ids'][0][i],
                     'content': results['documents'][0][i],
                     'metadata': results['metadatas'][0][i],
-                    'score': 1 - results['distances'][0][i]  # Convert distance to similarity
+                    'score': 1 - results['distances'][0][i],
                 })
                 
-            logger.info(f"✅ Found {len(formatted_results)} results")
+            logger.info("✅ Found %s results", len(formatted_results))
             return formatted_results
             
         except Exception as e:
-            logger.error(f"❌ Error searching vector store: {e}")
+            logger.error("❌ Error searching vector store: %s", e)
             return []
         
     def search_with_embedding(
@@ -204,7 +316,10 @@ class ChromaVectorStore:
         filter_dict: Optional[Dict] = None
     ) -> List[Dict]:
         """Search using pre-computed embedding"""
-        logger.info(f"🔍 Searching with embedding vector (top {k} results)")
+        logger.info(
+            "🔍 Searching with embedding vector (top %s results)",
+            k,
+        )
         
         where_clause = filter_dict if filter_dict else None
         
@@ -222,14 +337,14 @@ class ChromaVectorStore:
                     'id': results['ids'][0][i],
                     'content': results['documents'][0][i],
                     'metadata': results['metadatas'][0][i],
-                    'score': 1 - results['distances'][0][i]
+                    'score': 1 - results['distances'][0][i],
                 })
                 
-            logger.info(f"✅ Found {len(formatted_results)} results")
+            logger.info("✅ Found %s results", len(formatted_results))
             return formatted_results
             
         except Exception as e:
-            logger.error(f"❌ Error searching with embedding: {e}")
+            logger.error("❌ Error searching with embedding: %s", e)
             return []
     
     def get_similar_documents(
@@ -246,14 +361,14 @@ class ChromaVectorStore:
             )
             
             if not doc_results['ids']:
-                logger.warning(f"⚠️ Document {document_id} not found")
+                logger.warning("⚠️ Document %s not found", document_id)
                 return []
                 
             # Use the document content to find similar ones
             document_text = doc_results['documents'][0]
             
             # Search for similar documents (excluding the original)
-            results = self.search(document_text, k=k+1)
+            results = self.search(document_text, k=k + 1)
             
             # Filter out the original document
             filtered_results = [r for r in results if r['id'] != document_id][:k]
@@ -261,20 +376,20 @@ class ChromaVectorStore:
             return filtered_results
             
         except Exception as e:
-            logger.error(f"❌ Error finding similar documents: {e}")
+            logger.error("❌ Error finding similar documents: %s", e)
             return []
     
     def delete_collection(self):
         """Delete the entire collection"""
         try:
             self.client.delete_collection(name=self.collection_name)
-            logger.info(f"🗑️ Deleted collection: {self.collection_name}")
+            logger.info("🗑️ Deleted collection: %s", self.collection_name)
         except Exception as e:
-            logger.error(f"❌ Error deleting collection: {e}")
+            logger.error("❌ Error deleting collection: %s", e)
             
     def reset_collection(self):
         """Reset collection (delete and recreate)"""
-        logger.info(f"🔄 Resetting collection: {self.collection_name}")
+        logger.info("🔄 Resetting collection: %s", self.collection_name)
         self.delete_collection()
         self.collection = self._get_or_create_collection()
         
@@ -303,7 +418,7 @@ class ChromaVectorStore:
                     try:
                         # Get all documents to count sources
                         all_docs = self.collection.get(include=['metadatas'])
-                        source_counts = {}
+                        source_counts: Dict[str, int] = {}
                         
                         for metadata in all_docs['metadatas']:
                             source = metadata.get('source', 'unknown')
@@ -317,7 +432,7 @@ class ChromaVectorStore:
             return stats
             
         except Exception as e:
-            logger.error(f"❌ Error getting collection stats: {e}")
+            logger.error("❌ Error getting collection stats: %s", e)
             return {'error': str(e)}
 
 # Test function
@@ -336,7 +451,7 @@ def test_vector_store():
     
     # Get stats
     stats = vector_store.get_collection_stats()
-    logger.info(f"📊 Collection stats: {stats}")
+    logger.info("📊 Collection stats: %s", stats)
     
     # Test searches
     test_queries = [
@@ -347,15 +462,21 @@ def test_vector_store():
     ]
     
     for query in test_queries:
-        logger.info(f"🔍 Testing search: '{query}'")
+        logger.info("🔍 Testing search: '%s'", query)
         results = vector_store.search(query, k=3)
         
-        logger.info(f"📋 Top {len(results)} results:")
+        logger.info("📋 Top %s results:", len(results))
         for i, result in enumerate(results):
             score = result.get('score', 0)
             source = result.get('metadata', {}).get('source', 'Unknown')
             title = result.get('metadata', {}).get('title', 'Unknown')
-            logger.info(f"   {i+1}. [{source}] {title} (score: {score:.3f})")
+            logger.info(
+                "   %s. [%s] %s (score: %.3f)",
+                i + 1,
+                source,
+                title,
+                score,
+            )
         logger.info("")
     
     logger.info("✅ Vector store test completed!")

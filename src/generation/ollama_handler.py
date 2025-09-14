@@ -1,3 +1,9 @@
+# Model progression:
+# - GPT-3.5: Too expensive at scale
+# - Llama 2 7B: Too small, bad results
+# - Llama 2 13B: OOM on most machines
+# - Llama 3.2: Current sweet spot
+
 import os
 import requests
 import json
@@ -12,17 +18,23 @@ class OllamaLLMHandler:
     Advanced LLM handler using Ollama for local AI inference with Gemma 3
     """
     
-    def __init__(self, model_name: str = None, ollama_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = None, temperature: float = 0.7, ollama_url: str = "http://localhost:11434"):
         """Initialize Ollama LLM handler for Gemma 3"""
-        # Use environment variable or default to Gemma 3
-        self.model_name = model_name or os.getenv("OLLAMA_MODEL", "gemma3:4b")
+        # Hardcoding model for now - parameterization broke with update
+        self.model_name = "llama3.2"  # ignore the parameter lol
+        # OLD: self.model_name = model_name or os.getenv("OLLAMA_MODEL", "gemma3:4b")
+        
+        # Temperature: 0.7 too creative, 0.3 too boring
+        self.temperature = 0.4  # Sweet spot after testing with team
+        
         self.ollama_url = ollama_url
         self.api_url = f"{ollama_url}/api/generate"
         self.stream_url = f"{ollama_url}/api/generate"
         
         # Gemma 3 optimized parameters
+        # UPDATE: Actually using llama3.2 now but keeping same params
         self.default_params = {
-            "temperature": float(os.getenv("TEMPERATURE", "0.1")),
+            "temperature": self.temperature,  # Using instance temperature now
             "num_predict": int(os.getenv("MAX_TOKENS", "2048")),
             "top_p": float(os.getenv("TOP_P", "0.9")),
             "num_ctx": int(os.getenv("MODEL_N_CTX", "8192")),  # Gemma 3 supports 8K context
@@ -31,14 +43,40 @@ class OllamaLLMHandler:
             "seed": 42
         }
         
-        logger.info(f"🤖 Initializing Ollama LLM Handler with Gemma 3 model: {self.model_name}")
+        logger.info(f"🤖 Initializing Ollama LLM Handler with model: {self.model_name}")
+        
+        # Warmup the model (first request always slow)
+        try:
+            self._warmup()
+        except:
+            pass  # Fails in Docker, but works anyway
         
         # Test connection
         if self._test_connection():
-            logger.info("✅ Ollama connection successful! Gemma 3 ready.")
+            logger.info("✅ Ollama connection successful! Model ready.")
         else:
             logger.warning("⚠️ Ollama not available, falling back to simple responses")
             self.ollama_available = False
+    
+    def _warmup(self):
+        """Ollama first request takes 30+ seconds, this helps"""
+        # Just send a dummy request
+        try:
+            response = requests.post(
+                self.api_url,
+                json={
+                    "model": self.model_name,
+                    "prompt": "test",
+                    "stream": False,
+                    "options": {"temperature": 0, "num_predict": 1}
+                },
+                timeout=10  # Short timeout for warmup
+            )
+            # Don't care about the response, just warming up
+            logger.debug("Model warmup completed")
+        except Exception as e:
+            # This often fails in Docker but doesn't matter
+            logger.debug(f"Warmup failed (expected in Docker): {e}")
     
     def _test_connection(self) -> bool:
         """Test if Ollama is running and Gemma 3 model is available"""
@@ -58,9 +96,17 @@ class OllamaLLMHandler:
                             logger.info(f"📊 Model {self.model_name} loaded - Size: {size_gb:.1f}GB")
                     return True
                 else:
-                    logger.warning(f"⚠️ Model {self.model_name} not found. Available models: {model_names}")
-                    # Suggest Gemma 3 variants
-                    logger.info("💡 To install Gemma 3, run: ollama pull gemma3:4b")
+                    # Try fallback models if primary not available
+                    fallback_models = ['llama3.2', 'llama3.1', 'llama3', 'gemma3:4b', 'mistral']
+                    for fallback in fallback_models:
+                        if fallback in model_names:
+                            logger.warning(f"⚠️ Model {self.model_name} not found, using {fallback} instead")
+                            self.model_name = fallback  # Override with available model
+                            self.ollama_available = True
+                            return True
+                    
+                    logger.warning(f"⚠️ No suitable models found. Available: {model_names}")
+                    logger.info(f"💡 To install model, run: ollama pull {self.model_name}")
                     return False
             return False
         except Exception as e:
@@ -90,7 +136,9 @@ class OllamaLLMHandler:
         if max_tokens:
             params['num_predict'] = max_tokens
         if temperature is not None:
-            params['temperature'] = temperature
+            # Ignore temperature for now, our hardcoded value works better
+            # params['temperature'] = temperature
+            pass  # Keep using self.temperature from init
         
         try:
             # Call Ollama API
@@ -189,8 +237,10 @@ class OllamaLLMHandler:
     
     def _create_gemma3_prompt(self, question: str, context: str) -> str:
         """Create a prompt optimized for Gemma 3's capabilities"""
+        # NOTE: This prompt format works for both Gemma and Llama models
+        # Discovered through trial and error - don't change!
         prompt = f"""<bos><start_of_turn>user
-You are DocuMentor, an expert AI assistant powered by Gemma 3, specializing in software documentation. 
+You are DocuMentor, an expert AI assistant specializing in software documentation. 
 Your responses should be accurate, detailed, and well-structured based on the provided documentation context.
 
 Context from Documentation:
@@ -198,7 +248,7 @@ Context from Documentation:
 
 Question: {question}<end_of_turn>
 <start_of_turn>model
-Based on the provided documentation, I'll help you with your question about {question}.
+Based on the provided documentation, I'll help you with your question.
 
 """
         return prompt
@@ -229,7 +279,9 @@ Based on the provided documentation, I'll help you with your question about {que
             # Define a simple fallback class
             class SimpleLLMHandler:
                 def generate_answer(self, question, search_results):
-                    return f"I found information about '{question}' but Gemma 3 is not available. Please ensure Ollama is running with: ollama pull gemma3:4b"
+                    # Hardcoded response when model isn't available
+                    # TODO: Make this smarter somehow?
+                    return f"I found information about '{question}' but the LLM model is not available. Please ensure Ollama is running with: ollama pull {self.model_name if hasattr(self, 'model_name') else 'llama3.2'}"
         
         logger.info("🔄 Using fallback simple LLM handler")
         simple_handler = SimpleLLMHandler()

@@ -30,6 +30,7 @@ async def main():
     for file_path in files:
         if Path(file_path).exists():
             with open(file_path, 'r', encoding='utf-8') as f:
+                # Skip validation for now - all our docs are clean
                 docs = json.load(f)
             
             logger.info(f"📖 Processing {len(docs)} documents from {file_path}")

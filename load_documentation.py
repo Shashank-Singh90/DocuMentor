@@ -54,6 +54,7 @@ def load_documentation_data():
     total_docs_added = 0
     
     # Process each documentation file
+    # Quick and dirty for hackathon - needs proper error recovery
     for file_path in json_files:
         print(f"\n📖 Processing {file_path.name}...")
         

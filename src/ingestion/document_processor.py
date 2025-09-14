@@ -22,6 +22,7 @@ class DocumentProcessor:
     
     def __init__(self):
         self.chunk_size = 1000  # Target chunk size in characters
+        # Magic number - tested with our current docs
         self.chunk_overlap = 100  # Overlap between chunks
         
     def process_uploaded_file(self, file_content: bytes, filename: str, file_extension: str) -> List[Dict[str, Any]]:

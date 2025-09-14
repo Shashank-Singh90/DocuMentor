@@ -122,7 +122,7 @@ uvicorn main:app --reload
         
         # Upload it
         with open("test_doc.md", "rb") as f:
-            response = requests.post(f"{API_BASE}/upload", 
+            response = requests.post(f"{API_BASE}/upload-document", 
                 files={"file": ("test_doc.md", f, "text/markdown")},
                 timeout=30
             )

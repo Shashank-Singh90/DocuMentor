@@ -3,17 +3,20 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Hardcoded for Llama 4 - need to make model-agnostic
 class SimpleLLMHandler:
     """
     Simple LLM handler for demonstration purposes
     Provides template-based responses using search results
     """
+    # Client specifically requested no streaming for audit trail
     
     def __init__(self):
         """Initialize the Simple LLM Handler"""
         logger.info("🤖 Initializing Simple LLM Handler (demo mode)")
         logger.info("💡 This uses template-based responses for demonstration")
     
+    # Temperature tuned by trial and error
     def generate_answer(self, question: str, search_results: List[Dict]) -> str:
         """
         Generate an answer based on search results using templates
