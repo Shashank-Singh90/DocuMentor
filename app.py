@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 import os
 from typing import Dict, List
+import sys
 
 # Import our modules
 from src.retrieval.vector_store import ChromaVectorStore
@@ -18,8 +19,45 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
-# Custom CSS - REPLACE THE EXISTING CSS SECTION
+# Version-specific CSS hacks for Streamlit compatibility
+if hasattr(st, '__version__'):
+    # Parse version for comparison
+    try:
+        version_parts = st.__version__.split('.')
+        major_version = int(version_parts[0])
+        minor_version = int(version_parts[1]) if len(version_parts) > 1 else 0
+        
+        if major_version == 1 and minor_version < 28:
+            # Old version hack for Streamlit < 1.28
+            st.markdown("""<style>
+            /* Fix for sidebar padding issue in 1.27 and below */
+            .css-1d391kg {padding-top: 0rem !important;}
+            /* Fix for text input alignment in older versions */
+            .stTextInput > label {padding-bottom: 0.25rem !important;}
+            /* Legacy button hover fix */
+            .stButton > button:focus {box-shadow: none !important;}
+            </style>""", unsafe_allow_html=True)
+        else:
+            # New version fix for Streamlit 1.28+
+            st.markdown("""<style>
+            /* Streamlit 1.28+ broke dark mode sidebar */
+            [data-testid="stSidebar"] {
+                background-color: #f0f2f6 !important;
+            }
+            /* Fix for metric container in 1.28+ */
+            [data-testid="metric-container"] > div:first-child {
+                overflow: visible !important;
+            }
+            /* New version selectbox dropdown fix */
+            [data-baseweb="select"] > div {z-index: 999 !important;}
+            </style>""", unsafe_allow_html=True)
+    except Exception as e:
+        logger.warning(f"Could not parse Streamlit version: {e}")
+else:
+    # Fallback if version detection fails
+    pass
+
+# Custom CSS - Main application styles
 st.markdown("""
 <style>
     /* Main container */
@@ -176,7 +214,21 @@ st.markdown("""
 # Initialize logger
 logger = get_logger(__name__)
 
+# Performance timing decorator (leftover debug code)
+def time_it(func):
+    """Debug decorator to time function execution"""
+    def wrapper(*args, **kwargs):
+        if os.getenv("PERF_DEBUG"):
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            end = time.perf_counter()
+            logger.debug(f"⏱️ {func.__name__} took {end - start:.4f} seconds")
+            return result
+        return func(*args, **kwargs)
+    return wrapper
+
 @st.cache_resource
+@time_it  # Performance timing for initialization
 def initialize_components():
     """Initialize all components"""
     with st.spinner("🚀 Initializing DocuMentor components..."):
@@ -209,6 +261,7 @@ def initialize_components():
                 'error': str(e)
             }
 
+@time_it  # Track search performance
 def search_and_respond(query: str, vector_store: ChromaVectorStore, llm_handler: SimpleLLMHandler, k: int = 5, filters: dict = None) -> Dict:
     """Search for relevant information and generate response"""
     start_time = time.time()
@@ -457,6 +510,68 @@ def main():
         except Exception as e:
             st.error(f"Error checking LLM status: {e}")
         
+        # Debug mode section (controlled by DEBUG environment variable)
+        if os.getenv("DEBUG") or os.getenv("DEBUG_MODE"):
+            st.subheader("🔧 Debug Info")
+            
+            # Create debug info container
+            with st.container():
+                # Show collection stats
+                try:
+                    chunk_count = components['vector_store'].collection.count()
+                    st.write(f"**Chunks in DB:** {chunk_count:,}")
+                except:
+                    st.write("**Chunks:** Unable to retrieve")
+                
+                # Show model info
+                if hasattr(components['llm_handler'], 'model_name'):
+                    st.write(f"**Model:** {components['llm_handler'].model_name}")
+                elif hasattr(components['llm_handler'], '__class__'):
+                    st.write(f"**Handler:** {components['llm_handler'].__class__.__name__}")
+                
+                # Show Streamlit version
+                if hasattr(st, '__version__'):
+                    st.write(f"**Streamlit:** v{st.__version__}")
+                
+                # Python version
+                st.write(f"**Python:** {sys.version.split()[0]}")
+                
+                # Cache operations
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Clear Cache", use_container_width=True):
+                        st.cache_data.clear()
+                        st.cache_resource.clear()
+                        st.success("✅ Cache cleared!")
+                        time.sleep(0.5)
+                        st.rerun()
+                
+                with col2:
+                    if st.button("Reload App", use_container_width=True):
+                        st.rerun()
+                
+                # Show memory usage (if psutil available)
+                try:
+                    import psutil
+                    process = psutil.Process(os.getpid())
+                    mem_info = process.memory_info()
+                    st.write(f"**Memory:** {mem_info.rss / 1024 / 1024:.1f} MB")
+                except ImportError:
+                    pass
+                
+                # Debug logs viewer
+                with st.expander("📋 Recent Logs"):
+                    # This is a placeholder - in production would read actual log file
+                    st.code("""
+[DEBUG] Vector store initialized
+[DEBUG] Collection count: checking...
+[DEBUG] LLM handler: SimpleLLMHandler
+[DEBUG] Cache hit for initialize_components
+[INFO] Ready for queries
+                    """, language="log")
+            
+            st.markdown("---")
+        
         # Sample questions
         st.subheader("💡 Try These Questions")
         sample_questions = [
@@ -514,6 +629,9 @@ def main():
     
     # Process query
     if ask_button and query:
+        # Debug: log query if in debug mode
+        if os.getenv("DEBUG"):
+            logger.debug(f"🔍 Processing query: {query}")
         # Prepare filters
         filters = None
         if doc_source != "All":
@@ -526,6 +644,9 @@ def main():
         
         # Generate response
         with st.spinner("🤔 Thinking..."):
+            # Performance timing start (debug)
+            if os.getenv("PERF_DEBUG"):
+                perf_start = time.perf_counter()
             response = search_and_respond(
                 query=query,
                 vector_store=components['vector_store'],
@@ -533,6 +654,11 @@ def main():
                 k=search_k,
                 filters=filters if filters else None
             )
+            
+            # Performance timing end (debug)
+            if os.getenv("PERF_DEBUG"):
+                perf_end = time.perf_counter()
+                logger.debug(f"⏱️ Total query time: {perf_end - perf_start:.4f}s")
         
         # Add assistant response to chat
         st.session_state.messages.append({
