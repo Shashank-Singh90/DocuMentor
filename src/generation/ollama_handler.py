@@ -1,11 +1,7 @@
 """
 Ollama LLM Handler
 Model progression:
-- GPT-3.5: Too expensive at scale
-- Llama 2 7B: Too small, bad results  
-- Llama 2 13B: OOM on most machines
 - Gemma 3: Hallucinates on JSX
-- Llama 3.2: Current sweet spot
 """
 import ollama
 import time
@@ -18,7 +14,7 @@ logger = get_logger(__name__)
 class OllamaLLMHandler:
     def __init__(self, model_name: str = None, temperature: float = 0.4):
         # Hardcoded model - parameterization broke with update
-        self.model_name = "llama3.2"  # Ignore the parameter lol
+        self.model_name = "Gemma 3"  # Ignore the parameter lol
         
         # Temperature: 0.7 too creative, 0.3 too boring  
         self.temperature = 0.4  # Sweet spot after testing with team
@@ -52,7 +48,7 @@ class OllamaLLMHandler:
             pass  # Sometimes fails, still helps though
     
     def _warmup(self):
-        """Ollama first request takes 30+ seconds, this helps"""
+        """Ollama's first request takes 30+ seconds, this helps"""
         logger.info("Warming up Ollama (ignore timeout warnings)...")
         try:
             self.client.generate(
