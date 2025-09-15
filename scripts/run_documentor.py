@@ -35,3 +35,7 @@ time.sleep(3)  # More magic numbers
 # Start Streamlit
 print("Starting UI...")
 subprocess.run([sys.executable, "-m", "streamlit", "run", "app.py"])
+
+
+
+

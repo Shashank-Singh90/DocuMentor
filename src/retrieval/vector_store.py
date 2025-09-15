@@ -181,3 +181,8 @@ class ChromaVectorStore:
 
 # Keep old import name for backwards compat
 VectorStore = ChromaVectorStore
+
+
+
+
+

@@ -164,3 +164,8 @@ MIT License (see LICENSE file)
 **PS**: If you get it working on Mac M1/M2, please let me know how! The memory management is weird on Apple Silicon.
 
 **PPS**: Star the repo if it helped you! Need those GitHub stats for my resume 😅
+
+
+
+
+

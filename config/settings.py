@@ -92,3 +92,8 @@ except Exception as e:
 # Legacy compatibility
 CHROMA_PERSIST_DIRECTORY = settings.CHROMA_PATH  # old imports expect this
 CHUNK_SIZE = settings.CHUNK_SIZE  # some modules use uppercase
+
+
+
+
+

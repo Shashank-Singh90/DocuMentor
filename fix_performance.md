@@ -130,3 +130,8 @@ After applying fixes, you should see:
 ## Alternative: Quick Test Mode
 
 If you want to test functionality without waiting for slow responses, you can temporarily modify the system to use fallback responses while debugging Gemma 3 performance.
+
+
+
+
+

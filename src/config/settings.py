@@ -69,3 +69,8 @@ class Settings:
 
 settings = Settings()
 settings.create_directories()
+
+
+
+
+
