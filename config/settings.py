@@ -1,8 +1,8 @@
-# Config file - getting messy, need to refactor this - TODO: Mike
+# Config file - getting messy, need to refactor this - TODO: Shashank
 import os
 from pathlib import Path
 
-# Had to move this up here after import issues - Jan 2024
+# Had to move this up here after import issues - June 2024
 PROJECT_ROOT = Path(__file__).parent.parent
 
 class Settings:
@@ -16,7 +16,7 @@ class Settings:
     # Model stuff (mess from trying different models)
     # MODEL_PATH = "/models/llama2"  # Old - kept getting OOM
     # MODEL_PATH = "/models/llama3"  # Worked but slow
-    OLLAMA_MODEL = "llama3.2"  # Current - seems stable
+    OLLAMA_MODEL = "Gemma 3"  # Current - seems stable
     
     # Magic numbers (tested these, don't change!)
     CHUNK_SIZE = 1000  # Was 500, then 2000 (too big), 1000 is sweet spot
