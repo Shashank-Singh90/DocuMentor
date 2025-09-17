@@ -1,12 +1,33 @@
+# Create requirements-production.txt
+@"
+# Core API Framework
 fastapi==0.104.1
-chromadb==0.4.22  # Don't upgrade! 0.4.23 has breaking changes
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Vector Database and ML
+chromadb==0.4.22
+sentence-transformers==2.2.2
 ollama==0.1.7
-pydantic==2.5.0  # Pinned after v2.6 broke everything
-uvicorn[standard]==0.24.0  # Need 'standard' for websockets
 
-# Temporarily needed (remove after refactor)
-python-multipart==0.0.6  # For file uploads
+# File Handling and Security
+python-multipart==0.0.6
+aiofiles==23.2.1
+python-jose[cryptography]==3.3.0
 
-# Dev dependencies (move to dev-requirements.txt)
+# Logging and Configuration
+loguru==0.7.2
+python-dotenv==1.0.0
+
+# Development Tools
 pytest==7.4.0
-black  # Whatever version, just format consistently
+black==23.9.1
+isort==5.12.0
+
+# Additional ML/AI packages
+numpy==1.24.3
+pandas==2.0.3
+requests==2.31.0
+"@ | Out-File -FilePath "requirements-production.txt" -Encoding utf8
+

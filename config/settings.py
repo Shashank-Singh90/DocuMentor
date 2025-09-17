@@ -1,99 +1,83 @@
-# Config file - getting messy, need to refactor this - TODO: Shashank
+# Create updated settings.py
+@"
+#!/usr/bin/env python3
+"""
+Professional Settings Management for DocuMentor
+Python 3.11 Compatible Version
+"""
 import os
 from pathlib import Path
+from typing import Optional, List
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
-# Had to move this up here after import issues - June 2024
-PROJECT_ROOT = Path(__file__).parent.parent
+class Settings(BaseSettings):
+    """Application settings with environment variable support"""
+    
+    # API Configuration
+    api_title: str = Field(default="DocuMentor API", description="API title")
+    api_version: str = Field(default="1.0.0", description="API version")
+    api_description: str = Field(default="AI-powered documentation assistant", description="API description")
+    
+    # Server Configuration
+    host: str = Field(default="127.0.0.1", description="Server host")
+    port: int = Field(default=8000, description="Server port")
+    reload: bool = Field(default=False, description="Enable auto-reload")
+    log_level: str = Field(default="INFO", description="Logging level")
+    
+    # Ollama Configuration
+    ollama_host: str = Field(default="localhost:11434", description="Ollama server host")
+    ollama_model: str = Field(default="gemma3:4b", description="Default Ollama model")
+    ollama_timeout: int = Field(default=120, description="Ollama timeout in seconds")
+    
+    # Vector Database Configuration
+    chroma_persist_directory: str = Field(default="./data/vectordb", description="ChromaDB persistence directory")
+    collection_name: str = Field(default="documenter", description="ChromaDB collection name")
+    embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Sentence transformer model")
+    embedding_dimension: int = Field(default=384, description="Embedding dimension")
+    
+    # Generation Settings
+    temperature: float = Field(default=0.1, ge=0.0, le=2.0, description="Generation temperature")
+    max_tokens: int = Field(default=2048, ge=1, le=8192, description="Maximum tokens")
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Top-p sampling")
+    
+    # File Upload Settings
+    max_file_size: int = Field(default=50 * 1024 * 1024, description="Maximum file size in bytes")
+    allowed_extensions: List[str] = Field(default=[".pdf", ".txt", ".md", ".docx"], description="Allowed file extensions")
+    upload_directory: str = Field(default="./data/uploads", description="Upload directory")
+    
+    # Security Settings
+    api_key: Optional[str] = Field(default=None, description="API key for authentication")
+    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
+    
+    # Monitoring
+    enable_monitoring: bool = Field(default=True, description="Enable monitoring")
+    log_file: str = Field(default="./logs/app.log", description="Log file path")
+    
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore"
+    }
 
-class Settings:
-    # Basic paths
-    data_dir = PROJECT_ROOT / "data"  # was DATA_DIR, changing gradually
-    VECTORDB_DIR = data_dir / "vectordb"
+def create_directories(settings_instance: Settings):
+    """Create required directories if they don't exist"""
+    directories = [
+        Path(settings_instance.chroma_persist_directory),
+        Path(settings_instance.upload_directory),
+        Path(settings_instance.log_file).parent,
+        Path("./data/scraped"),
+        Path("./data/processed")
+    ]
     
-    # Hardcoded for now - make configurable later
-    CHROMA_PATH = "D:/Development/Projects/Frontend/data/vectordb"  # TODO: Fix this!!
-    
-    # Model stuff (mess from trying different models)
-    # MODEL_PATH = "/models/llama2"  # Old - kept getting OOM
-    # MODEL_PATH = "/models/llama3"  # Worked but slow
-    OLLAMA_MODEL = "Gemma 3"  # Current - seems stable
-    
-    # Magic numbers (tested these, don't change!)
-    CHUNK_SIZE = 1000  # Was 500, then 2000 (too big), 1000 is sweet spot
-    chunk_overlap = 200  # lowercase because I'm lazy to refactor
-    
-    # Embeddings - don't remember why we picked this one
-    EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-    
-    # Old stuff from when we tried local models
-    # model_path = "D:/models/llama/llama-2-7b-chat.Q4_K_M.gguf"  # deprecated
-    # USE_LOCAL_MODEL = False  # switched to API
-    
-    # Directories (some of these might not be used anymore)
-    logs_dir = PROJECT_ROOT / "logs"
-    LOGS_DIR = logs_dir  # duplicate for backwards compat
-    raw_dir = data_dir / "raw"
-    processed_dir = data_dir / "processed"
-    
-    # API stuff - added when we switched from local
-    if os.getenv("OPENAI_API_KEY"):
-        USE_OPENAI = True
-        # fall back to ollama if no API key
-    else:
-        USE_OPENAI = False
-    
-    # Scraping URLs (might move these to a separate config)
-    LANGCHAIN_DOCS_URL = "https://python.langchain.com/docs/"
-    FASTAPI_DOCS_URL = "https://fastapi.tiangolo.com/"  # not using this yet
-    
-    # Quick hack for development
-    DEBUG = True  # REMEMBER TO TURN OFF IN PROD!!
-    
-    # Added after prod issues
-    MAX_RETRIES = 3
-    TIMEOUT = 30  # seconds
-    
-    # Logging
-    LOG_LEVEL = "INFO"  # Added to fix logger import error
-    
-    # ChromaDB settings (from .env.example)
-    CHROMA_PERSIST_DIRECTORY = CHROMA_PATH  # Use the hardcoded path
-    COLLECTION_NAME = "documenter"
-    PROCESSED_DATA_DIR = processed_dir
-    
-    @classmethod
-    def create_directories(cls):
-        # Create dirs we need (some might already exist)
-        dirs = [
-            cls.data_dir,
-            cls.VECTORDB_DIR,
-            cls.logs_dir,
-            cls.raw_dir,
-            cls.processed_dir,
-        ]
-        for d in dirs:
-            try:
-                Path(d).mkdir(parents=True, exist_ok=True)
-            except:
-                pass  # probably already exists
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True)
 
-
-# Initialize settings (not sure if this is the best pattern but it works)
+# Global settings instance
 settings = Settings()
 
-# Auto-create directories on import
-# Had issues with missing dirs in prod, so doing this automatically now
-try:
-    settings.create_directories()
-except Exception as e:
-    print(f"Warning: Could not create directories: {e}")
-    # Continue anyway, might be permission issues
-
-# Legacy compatibility
-CHROMA_PERSIST_DIRECTORY = settings.CHROMA_PATH  # old imports expect this
-CHUNK_SIZE = settings.CHUNK_SIZE  # some modules use uppercase
-
-
-
-
-
+if __name__ == "__main__":
+    create_directories(settings)
+    print("Settings loaded and directories created")
+"@ | Out-File -FilePath "src/config/settings.py" -Encoding utf8

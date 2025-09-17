@@ -1,0 +1,1 @@
+﻿"DocuMentor utils module"

@@ -49,7 +49,7 @@ with st.sidebar:
     
     st.markdown("### ?? AI Model Status")
     try:
-        response = requests.get("http://localhost:8000/stats", timeout=5)
+        response = requests.get("http://localhost:8500/health", timeout=5)
         if response.status_code == 200:
             st.success("? Gemma 3 Ready")
         else:
@@ -99,9 +99,9 @@ if ask_button and query:
     with st.spinner("?? Gemma 3 is thinking..."):
         try:
             response = requests.post(
-                "http://localhost:8000/ask",
+                "http://localhost:8500/ask",
                 json={"question": query},
-                timeout=120
+                timeout=300
             )
             if response.status_code == 200:
                 data = response.json()

@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class OllamaLLMHandler:
     def __init__(self, model_name: str = None, temperature: float = 0.4):
         # Hardcoded model - parameterization broke with update
-        self.model_name = "Gemma 3"  # Ignore the parameter lol
+        self.model_name = "gemma3:4b"  # Ignore the parameter lol
         
         # Temperature: 0.7 too creative, 0.3 too boring  
         self.temperature = 0.4  # Sweet spot after testing with team
@@ -27,13 +27,13 @@ class OllamaLLMHandler:
         
         self.client = ollama.Client(host=f"http://{self.host}:11434")
         
-        # Timeout config (Llama 3.2 needs more time)
+        # Timeout config (Gemma 3 needs more time)
         self.timeout = 60  # Was 30, not enough
         
         # Check if model exists
         try:
             models = self.client.list()
-            model_names = [m['name'] for m in models.get('models', [])]
+            model_names = [m.get('name', '') for m in models.get('models', [])]
             if not any(self.model_name in name for name in model_names):
                 logger.warning(f"Model {self.model_name} not found, pulling...")
                 self.client.pull(self.model_name)
@@ -67,7 +67,7 @@ class OllamaLLMHandler:
         # Clean prompt (learned from production)
         if len(prompt) > 8000:
             logger.warning("Prompt too long, truncating...")
-            prompt = prompt[:8000]  # Llama context limit
+            prompt = prompt[:8000]  # Gemma 3 context limit
         
         # Strip any weird unicode
         prompt = prompt.encode('utf-8', 'ignore').decode('utf-8')
@@ -123,7 +123,7 @@ class OllamaLLMHandler:
         try:
             models = self.client.list()
             for model in models.get('models', []):
-                if self.model_name in model['name']:
+                if self.model_name in model.get('name', ''):
                     return {
                         'status': 'available',
                         'model': model['name'],
