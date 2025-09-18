@@ -1,5 +1,9 @@
 # Create updated settings.py
 @"
+# GOOD (replace with):
+CHROMA_DB_PATH = "./data/chroma_db"
+COLLECTION_NAME = "documents"
+CHROMA_PERSIST_DIRECTORY = "./data/chroma_db"
 #!/usr/bin/env python3
 """
 Professional Settings Management for DocuMentor
