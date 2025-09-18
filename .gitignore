@@ -27,6 +27,8 @@ ENV/
 env/
 .venv/
 .ENV/
+venv_311/
+langchain_env/
 
 # Environment variables
 .env
@@ -53,6 +55,8 @@ data/vectordb/
 data/models/
 data/raw/
 data/processed/
+data/chroma_db/
+data/documents/
 *.db
 *.sqlite
 *.gguf
