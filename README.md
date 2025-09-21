@@ -11,10 +11,8 @@ A modern, production-ready AI-powered documentation assistant with multi-provide
 ## 🚀 Features
 
 - **🔍 Smart Document Search**: AI-powered search across 11+ file formats (PDF, TXT, MD, CSV, etc.)
-- **🤖 Multi-Provider AI**: Supports Ollama, OpenAI, Google Gemini with automatic fallback
+- **🤖 Multi-Provider AI**: Supports Ollama
 - **🎯 Technology-Specific Filtering**: Filter by 9+ frameworks (Python, FastAPI, React, etc.)
-- **🌐 Real-Time Web Search**: Integrated web search for current information
-- **🎨 Modern Dark/Light Mode**: Beautiful responsive UI with theme toggle
 - **⚡ High Performance**: Optimized vector search with intelligent caching
 - **📡 Complete REST API**: FastAPI backend with interactive documentation
 - **💡 Smart Code Generation**: Context-aware code generation with examples
@@ -87,8 +85,6 @@ rag_system/
 The system uses environment variables and default configurations:
 
 - **OLLAMA_BASE_URL**: Ollama server URL (default: http://localhost:11434)
-- **OPENAI_API_KEY**: OpenAI API key (optional)
-- **GOOGLE_API_KEY**: Google Gemini API key (optional)
 - **CHROMA_PERSIST_DIRECTORY**: Vector database path (default: ./data/chroma_db)
 
 ## Usage
@@ -149,10 +145,10 @@ The system works perfectly for document search and retrieval without LLM provide
 ```bash
 # Install Ollama
 # Download from: https://ollama.ai
-# Run: ollama pull llama3.2
+# Run: ollama pull 
 ```
 
-### Option 2: Cloud AI
+### Option 2: API -> It's in the pipeline now, but not yet implemented
 ```bash
 # Set environment variables
 export OPENAI_API_KEY="your-openai-key"
@@ -176,10 +172,10 @@ python tests.py
 1. **Unicode Errors**: Fixed in recent version - emojis removed from console output
 2. **Import Errors**: Run `pip install -r requirements.txt` to install missing dependencies
 3. **Port Conflicts**: Change ports in launcher configuration if 8506/8100 are in use
-4. **Cache Errors**: Fixed - improved destructor error handling in cache system
+4. **Cache Errors**: Fixed - improved destructor error handling in the cache system
 5. **LLM Not Available**: System works without LLMs; configure optional providers for AI responses
 
-### Recent Fixes (September 2025)
+### Recent Fixes (21 September 2025)
 
 - ✅ Fixed cache system destructor errors
 - ✅ Removed Unicode characters causing Windows console issues
@@ -240,7 +236,7 @@ This project was built with the assistance of and gratefully acknowledges the fo
 - **ChromaDB** - Vector database for efficient document storage and retrieval
 - **Sentence Transformers** - State-of-the-art embedding models for semantic search
 
-### Web Scraping & Search
+### Web Scraping & Search -> **In the pipeline**
 - **Firecrawl** - Advanced web scraping service for real-time information retrieval
 - **DuckDuckGo** - Privacy-focused search engine integration
 
