@@ -9,9 +9,9 @@ This is a production-ready Retrieval-Augmented Generation (RAG) system built wit
 ### Technology Stack
 - **Backend**: Python 3.8+, FastAPI, ChromaDB, Sentence Transformers
 - **Frontend**: Streamlit with modern CSS styling and animations
-- **AI Providers**: Ollama (primary), OpenAI, Google Gemini (fallback)
+- **AI Providers**: Ollama (primary) -> Gemma
 - **Document Processing**: Supports 11+ formats (PDF, TXT, MD, CSV, DOCX, etc.)
-- **Web Search**: Integrated Firecrawl and DuckDuckGo search
+- **Web Search**: Integrated Firecrawl and DuckDuckGo search (In pipe line)
 
 ### System Components
 
@@ -38,30 +38,24 @@ rag_system/
 
 ## Key Features
 
-### 1. Multi-Provider AI Support
-- **Primary**: Ollama (local inference)
-- **Fallback**: OpenAI GPT models
-- **Additional**: Google Gemini
-- Automatic provider switching and status monitoring
-
-### 2. Technology-Specific Filtering
+### 1. Technology-Specific Filtering
 Supports filtering by 9+ technology stacks:
 - Python 3.13.5, FastAPI, Django 5.2
 - React & Next.js, Node.js, TypeScript
 - PostgreSQL, MongoDB, LangChain
 
-### 3. Advanced Document Processing
+### 2. Advanced Document Processing
 - **Smart Chunking**: Overlap-aware chunking for better context
 - **Multi-Format**: PDF, TXT, MD, CSV, DOCX, HTML, JSON, XML, etc.
 - **Metadata Extraction**: Source tracking and content categorization
 
-### 4. Modern Web Interface
+### 3. Modern Web Interface
 - **Responsive Design**: Modern CSS with gradients and animations
 - **Dark Mode Support**: Professional styling
 - **Real-Time Features**: Live search, performance metrics
 - **Interactive Chat**: Message history, source display
 
-### 5. Comprehensive API
+### 4. Comprehensive API
 - **Enhanced Q&A**: `/ask/enhanced` with filtering
 - **Code Generation**: `/generate-code/enhanced` with context
 - **Technology Queries**: `/technology-query` for specific frameworks
@@ -74,16 +68,10 @@ Supports filtering by 9+ technology stacks:
 ```bash
 # LLM Providers
 OLLAMA_BASE_URL=http://localhost:11434
-OPENAI_API_KEY=your_openai_key
-GOOGLE_API_KEY=your_gemini_key
 
 # Database
 CHROMA_PERSIST_DIRECTORY=./data/chroma_db
 COLLECTION_NAME=documents
-
-# Search
-FIRECRAWL_API_KEY=your_firecrawl_key
-```
 
 ### Default Settings
 - **Chunk Size**: 1000 characters with 200 overlap
@@ -120,7 +108,7 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 4. Update configuration in `settings.py`
 
 ### Adding New Document Formats
-1. Add processor in `rag_system/core/processing/document_processor.py`
+1. Add a processor in `rag_system/core/processing/document_processor.py`
 2. Update `get_supported_formats()` method
 3. Add format-specific processing logic
 4. Test with sample documents
@@ -156,15 +144,13 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 ### Common Issues
 1. **Import Errors**: Check Python path and dependencies
 2. **Port Conflicts**: Modify ports in launcher scripts
-3. **LLM Unavailable**: Verify Ollama is running or API keys set
+3. **LLM Unavailable**: Verify Ollama is running
 4. **Slow Performance**: Check vector database size and system resources
 5. **UI Issues**: Clear Streamlit cache with `streamlit cache clear`
 
 ### Debug Mode
-- Enable debug logging in configuration
+- Enable debug logging in the configuration
 - Use `tests.py` for systematic component testing
-- Check API documentation at `http://localhost:8100/docs`
-- Monitor performance metrics in web interface
 
 ## Security Considerations
 
@@ -176,7 +162,6 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 
 ### Data Privacy
 - Local vector database (no external data sharing)
-- Optional web search (can be disabled)
 - No persistent storage of user queries
 - Configurable data retention policies
 
@@ -197,27 +182,19 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 ## Version Information
 
 - **Current Version**: 2.0.0 - Professional Edition
-- **Last Updated**: September 2025 (Post-testing and optimization)
+- **Last Updated**: 11 September 2025 (Post-testing and optimization)
 - **Python Compatibility**: 3.8+ (Tested with 3.11.9)
 - **Dependencies**: Listed in `requirements.txt`
 - **Test Status**: 5/7 tests passing (Core functionality operational)
 
 ## Recent Updates and Fixes (September 2025)
 
-### Critical Fixes Applied
-1. **Cache System**: Fixed destructor errors in `cache.py` and `embedding_cache.py`
-2. **Unicode Issues**: Removed emoji characters causing Windows console errors
-3. **API Imports**: Fixed module import paths in `rag_system.api.__init__.py`
-4. **File Cleanup**: Removed unnecessary test files and empty directories
-5. **Performance**: Optimized caching and reduced memory footprint
-
 ### Current System Status
 - **Document Database**: 270 documents successfully loaded
 - **Vector Search**: Fully operational with fast retrieval
-- **Web Interface**: Running on port 8506 (Streamlit)
 - **API Server**: Running on port 8100 (FastAPI)
 - **Cache System**: Working without errors
-- **LLM Providers**: Optional (system works without them)
+- **LLM Providers**:Ollama -> Gemma 2 2b
 
 ## Support and Maintenance
 
