@@ -1,1 +1,0 @@
-﻿"DocuMentor package module"

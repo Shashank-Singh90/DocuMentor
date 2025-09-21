@@ -1,0 +1,481 @@
+Python 3.13.5 Complete Reference
+
+Python is a high-level, interpreted programming language with dynamic semantics and a comprehensive standard library.
+
+LANGUAGE FUNDAMENTALS
+
+Data Types:
+- Numbers: int, float, complex, decimal.Decimal, fractions.Fraction
+- Strings: str, bytes, bytearray
+- Collections: list, tuple, dict, set, frozenset
+- Boolean: bool (True, False)
+- None type: NoneType
+
+Variables and Assignment:
+x = 10              # Integer
+y = 3.14           # Float
+name = "Python"    # String
+is_valid = True    # Boolean
+data = None        # None
+
+String Operations:
+text = "Hello, World!"
+text.upper()       # "HELLO, WORLD!"
+text.lower()       # "hello, world!"
+text.split(", ")   # ["Hello", "World!"]
+text.replace("World", "Python")  # "Hello, Python!"
+
+f-strings (Formatted String Literals):
+name = "Alice"
+age = 30
+message = f"Hello, {name}! You are {age} years old."
+
+Lists:
+numbers = [1, 2, 3, 4, 5]
+numbers.append(6)           # Add element
+numbers.extend([7, 8])      # Add multiple elements
+numbers.insert(0, 0)        # Insert at index
+numbers.remove(3)           # Remove by value
+popped = numbers.pop()      # Remove and return last
+numbers[1:3]               # Slicing [2, 3]
+
+List Comprehensions:
+squares = [x**2 for x in range(10)]
+evens = [x for x in range(20) if x % 2 == 0]
+matrix = [[i*j for j in range(3)] for i in range(3)]
+
+Dictionaries:
+person = {"name": "Alice", "age": 30, "city": "New York"}
+person["email"] = "alice@example.com"  # Add key
+person.get("phone", "N/A")             # Get with default
+person.keys()                          # Dict keys
+person.values()                        # Dict values
+person.items()                         # Key-value pairs
+
+Dictionary Comprehensions:
+squares_dict = {x: x**2 for x in range(10)}
+filtered_dict = {k: v for k, v in person.items() if len(str(v)) > 3}
+
+Sets:
+unique_numbers = {1, 2, 3, 4, 5}
+unique_numbers.add(6)
+unique_numbers.discard(3)
+set1 = {1, 2, 3}
+set2 = {3, 4, 5}
+set1.union(set2)        # {1, 2, 3, 4, 5}
+set1.intersection(set2) # {3}
+
+CONTROL FLOW
+
+Conditional Statements:
+if condition:
+    # do something
+elif another_condition:
+    # do something else
+else:
+    # default action
+
+Loops:
+# For loop
+for item in iterable:
+    print(item)
+
+# While loop
+while condition:
+    # do something
+    if break_condition:
+        break
+    if continue_condition:
+        continue
+
+# For loop with enumerate
+for index, value in enumerate(['a', 'b', 'c']):
+    print(f"{index}: {value}")
+
+# For loop with zip
+names = ['Alice', 'Bob', 'Charlie']
+ages = [25, 30, 35]
+for name, age in zip(names, ages):
+    print(f"{name} is {age} years old")
+
+FUNCTIONS
+
+Function Definition:
+def greet(name, greeting="Hello"):
+    """Function with default parameter and docstring."""
+    return f"{greeting}, {name}!"
+
+# Function with variable arguments
+def sum_all(*args):
+    return sum(args)
+
+# Function with keyword arguments
+def create_profile(**kwargs):
+    return kwargs
+
+# Lambda functions
+square = lambda x: x**2
+numbers = [1, 2, 3, 4, 5]
+squared = list(map(square, numbers))
+
+Decorators:
+def my_decorator(func):
+    def wrapper(*args, **kwargs):
+        print("Before function call")
+        result = func(*args, **kwargs)
+        print("After function call")
+        return result
+    return wrapper
+
+@my_decorator
+def say_hello(name):
+    print(f"Hello, {name}!")
+
+CLASSES AND OBJECTS
+
+Class Definition:
+class Person:
+    """A simple Person class."""
+
+    class_variable = "Human"
+
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def introduce(self):
+        return f"Hi, I'm {self.name} and I'm {self.age} years old."
+
+    @classmethod
+    def from_string(cls, person_str):
+        name, age = person_str.split('-')
+        return cls(name, int(age))
+
+    @staticmethod
+    def is_adult(age):
+        return age >= 18
+
+    def __str__(self):
+        return f"Person(name='{self.name}', age={self.age})"
+
+    def __repr__(self):
+        return f"Person('{self.name}', {self.age})"
+
+Inheritance:
+class Student(Person):
+    def __init__(self, name, age, student_id):
+        super().__init__(name, age)
+        self.student_id = student_id
+
+    def study(self, subject):
+        return f"{self.name} is studying {subject}."
+
+Property Decorators:
+class Circle:
+    def __init__(self, radius):
+        self._radius = radius
+
+    @property
+    def radius(self):
+        return self._radius
+
+    @radius.setter
+    def radius(self, value):
+        if value < 0:
+            raise ValueError("Radius cannot be negative")
+        self._radius = value
+
+    @property
+    def area(self):
+        return 3.14159 * self._radius ** 2
+
+MODULES AND PACKAGES
+
+Importing:
+import math
+from datetime import datetime, timedelta
+import numpy as np  # Third-party package
+from my_module import my_function
+
+Creating Modules:
+# my_module.py
+def my_function():
+    return "Hello from my_module!"
+
+PI = 3.14159
+
+class MyClass:
+    pass
+
+Package Structure:
+my_package/
+    __init__.py
+    module1.py
+    module2.py
+    subpackage/
+        __init__.py
+        submodule.py
+
+ERROR HANDLING
+
+Try-Except Blocks:
+try:
+    result = 10 / 0
+except ZeroDivisionError as e:
+    print(f"Error: {e}")
+except (TypeError, ValueError) as e:
+    print(f"Type or Value Error: {e}")
+else:
+    print("No exception occurred")
+finally:
+    print("This always executes")
+
+Custom Exceptions:
+class CustomError(Exception):
+    """Custom exception class."""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+def risky_function():
+    raise CustomError("Something went wrong!")
+
+FILE I/O
+
+Reading Files:
+# Reading entire file
+with open('file.txt', 'r') as f:
+    content = f.read()
+
+# Reading lines
+with open('file.txt', 'r') as f:
+    lines = f.readlines()
+
+# Reading line by line
+with open('file.txt', 'r') as f:
+    for line in f:
+        print(line.strip())
+
+Writing Files:
+# Writing text
+with open('output.txt', 'w') as f:
+    f.write("Hello, World!")
+
+# Writing multiple lines
+lines = ['Line 1\n', 'Line 2\n', 'Line 3\n']
+with open('output.txt', 'w') as f:
+    f.writelines(lines)
+
+JSON Handling:
+import json
+
+# Writing JSON
+data = {"name": "Alice", "age": 30}
+with open('data.json', 'w') as f:
+    json.dump(data, f, indent=2)
+
+# Reading JSON
+with open('data.json', 'r') as f:
+    data = json.load(f)
+
+STANDARD LIBRARY MODULES
+
+Collections:
+from collections import defaultdict, Counter, deque, namedtuple
+
+# defaultdict
+dd = defaultdict(list)
+dd['key'].append('value')
+
+# Counter
+counter = Counter(['a', 'b', 'a', 'c', 'b', 'a'])
+# Counter({'a': 3, 'b': 2, 'c': 1})
+
+# deque (double-ended queue)
+dq = deque([1, 2, 3])
+dq.appendleft(0)
+dq.append(4)
+
+# namedtuple
+Point = namedtuple('Point', ['x', 'y'])
+p = Point(1, 2)
+
+Itertools:
+import itertools
+
+# Infinite iterators
+count = itertools.count(start=1, step=2)  # 1, 3, 5, 7, ...
+cycle = itertools.cycle(['A', 'B', 'C'])  # A, B, C, A, B, C, ...
+
+# Finite iterators
+combinations = list(itertools.combinations([1, 2, 3], 2))  # [(1, 2), (1, 3), (2, 3)]
+permutations = list(itertools.permutations([1, 2, 3], 2))  # [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]
+
+Datetime:
+from datetime import datetime, date, time, timedelta
+
+now = datetime.now()
+today = date.today()
+specific_date = datetime(2023, 12, 25, 10, 30, 0)
+
+# Formatting
+formatted = now.strftime("%Y-%m-%d %H:%M:%S")
+parsed = datetime.strptime("2023-12-25", "%Y-%m-%d")
+
+# Arithmetic
+tomorrow = today + timedelta(days=1)
+week_ago = now - timedelta(weeks=1)
+
+Regular Expressions:
+import re
+
+pattern = r'\d{3}-\d{2}-\d{4}'  # SSN pattern
+text = "My SSN is 123-45-6789"
+
+match = re.search(pattern, text)
+if match:
+    print(f"Found: {match.group()}")
+
+# Find all matches
+emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
+
+# Replace
+cleaned = re.sub(r'\d', 'X', text)  # Replace digits with X
+
+ADVANCED FEATURES
+
+Generators:
+def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+# Generator expression
+squares = (x**2 for x in range(10))
+
+Context Managers:
+class FileManager:
+    def __init__(self, filename, mode):
+        self.filename = filename
+        self.mode = mode
+
+    def __enter__(self):
+        self.file = open(self.filename, self.mode)
+        return self.file
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.file.close()
+
+# Using context manager
+with FileManager('test.txt', 'w') as f:
+    f.write("Hello, World!")
+
+Asyncio (Asynchronous Programming):
+import asyncio
+
+async def fetch_data(url):
+    # Simulate async operation
+    await asyncio.sleep(1)
+    return f"Data from {url}"
+
+async def main():
+    tasks = [fetch_data(f"url{i}") for i in range(3)]
+    results = await asyncio.gather(*tasks)
+    print(results)
+
+# Run async function
+# asyncio.run(main())
+
+Type Hints:
+from typing import List, Dict, Optional, Union, Callable
+
+def process_items(items: List[str]) -> Dict[str, int]:
+    return {item: len(item) for item in items}
+
+def optional_param(name: str, age: Optional[int] = None) -> str:
+    if age is not None:
+        return f"{name} is {age} years old"
+    return f"Hello, {name}!"
+
+# Function type hints
+def apply_function(func: Callable[[int], int], value: int) -> int:
+    return func(value)
+
+TESTING
+
+Unit Testing:
+import unittest
+
+class TestMathOperations(unittest.TestCase):
+    def setUp(self):
+        self.calculator = Calculator()
+
+    def test_addition(self):
+        result = self.calculator.add(2, 3)
+        self.assertEqual(result, 5)
+
+    def test_division_by_zero(self):
+        with self.assertRaises(ZeroDivisionError):
+            self.calculator.divide(10, 0)
+
+if __name__ == '__main__':
+    unittest.main()
+
+BEST PRACTICES
+
+Code Style (PEP 8):
+- Use 4 spaces for indentation
+- Lines should not exceed 79 characters
+- Use snake_case for variables and functions
+- Use PascalCase for classes
+- Use UPPER_CASE for constants
+
+Virtual Environments:
+# Create virtual environment
+python -m venv myenv
+
+# Activate (Windows)
+myenv\Scripts\activate
+
+# Activate (Unix/macOS)
+source myenv/bin/activate
+
+# Install packages
+pip install package_name
+
+# Requirements file
+pip freeze > requirements.txt
+pip install -r requirements.txt
+
+Package Management:
+# Install package
+pip install package_name
+
+# Install specific version
+pip install package_name==1.2.3
+
+# Upgrade package
+pip install --upgrade package_name
+
+# Uninstall package
+pip uninstall package_name
+
+# List installed packages
+pip list
+
+Performance Tips:
+- Use list comprehensions instead of loops when possible
+- Use built-in functions (map, filter, reduce)
+- Use sets for membership testing
+- Use generators for large datasets
+- Profile your code with cProfile
+- Use appropriate data structures for your use case
+
+Security Best Practices:
+- Validate all input
+- Use secrets module for cryptographic randomness
+- Don't store sensitive data in plain text
+- Use HTTPS for network communications
+- Keep dependencies updated
+- Use virtual environments to isolate projects

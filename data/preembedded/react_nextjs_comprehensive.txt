@@ -1,0 +1,903 @@
+React & Next.js Complete Reference
+
+React is a JavaScript library for building user interfaces, and Next.js is a production-ready framework built on top of React.
+
+REACT FUNDAMENTALS
+
+Installation:
+npx create-react-app my-app
+cd my-app
+npm start
+
+# Or with TypeScript
+npx create-react-app my-app --template typescript
+
+JSX Basics:
+import React from 'react';
+
+function Welcome() {
+    const name = 'World';
+    return (
+        <div>
+            <h1>Hello, {name}!</h1>
+            <p>Welcome to React</p>
+        </div>
+    );
+}
+
+export default Welcome;
+
+Components:
+// Functional Component
+function Button({ children, onClick, type = 'button' }) {
+    return (
+        <button type={type} onClick={onClick}>
+            {children}
+        </button>
+    );
+}
+
+// Arrow Function Component
+const Card = ({ title, content }) => {
+    return (
+        <div className="card">
+            <h2>{title}</h2>
+            <p>{content}</p>
+        </div>
+    );
+};
+
+HOOKS
+
+useState Hook:
+import React, { useState } from 'react';
+
+function Counter() {
+    const [count, setCount] = useState(0);
+
+    const increment = () => setCount(count + 1);
+    const decrement = () => setCount(count - 1);
+
+    return (
+        <div>
+            <p>Count: {count}</p>
+            <button onClick={increment}>+</button>
+            <button onClick={decrement}>-</button>
+        </div>
+    );
+}
+
+// State with Objects
+function UserProfile() {
+    const [user, setUser] = useState({
+        name: '',
+        email: '',
+        age: 0
+    });
+
+    const updateName = (name) => {
+        setUser(prevUser => ({
+            ...prevUser,
+            name
+        }));
+    };
+
+    return (
+        <div>
+            <input
+                value={user.name}
+                onChange={(e) => updateName(e.target.value)}
+                placeholder="Name"
+            />
+            <p>Hello, {user.name}</p>
+        </div>
+    );
+}
+
+useEffect Hook:
+import React, { useState, useEffect } from 'react';
+
+function DataFetcher() {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch('/api/data');
+                const result = await response.json();
+                setData(result);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []); // Empty dependency array means this runs once
+
+    if (loading) return <div>Loading...</div>;
+    if (error) return <div>Error: {error}</div>;
+
+    return (
+        <div>
+            <h2>Data:</h2>
+            <pre>{JSON.stringify(data, null, 2)}</pre>
+        </div>
+    );
+}
+
+// Effect with cleanup
+function Timer() {
+    const [time, setTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setTime(new Date());
+        }, 1000);
+
+        // Cleanup function
+        return () => clearInterval(timer);
+    }, []);
+
+    return <div>Current time: {time.toLocaleTimeString()}</div>;
+}
+
+useContext Hook:
+import React, { createContext, useContext, useState } from 'react';
+
+// Create context
+const ThemeContext = createContext();
+
+// Provider component
+function ThemeProvider({ children }) {
+    const [theme, setTheme] = useState('light');
+
+    const toggleTheme = () => {
+        setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    };
+
+    return (
+        <ThemeContext.Provider value={{ theme, toggleTheme }}>
+            {children}
+        </ThemeContext.Provider>
+    );
+}
+
+// Consumer component
+function ThemedButton() {
+    const { theme, toggleTheme } = useContext(ThemeContext);
+
+    return (
+        <button
+            onClick={toggleTheme}
+            style={{
+                backgroundColor: theme === 'light' ? '#fff' : '#333',
+                color: theme === 'light' ? '#333' : '#fff'
+            }}
+        >
+            Toggle Theme (Current: {theme})
+        </button>
+    );
+}
+
+useReducer Hook:
+import React, { useReducer } from 'react';
+
+const initialState = { count: 0 };
+
+function reducer(state, action) {
+    switch (action.type) {
+        case 'increment':
+            return { count: state.count + 1 };
+        case 'decrement':
+            return { count: state.count - 1 };
+        case 'reset':
+            return initialState;
+        default:
+            throw new Error();
+    }
+}
+
+function Counter() {
+    const [state, dispatch] = useReducer(reducer, initialState);
+
+    return (
+        <div>
+            Count: {state.count}
+            <button onClick={() => dispatch({ type: 'increment' })}>+</button>
+            <button onClick={() => dispatch({ type: 'decrement' })}>-</button>
+            <button onClick={() => dispatch({ type: 'reset' })}>Reset</button>
+        </div>
+    );
+}
+
+Custom Hooks:
+import { useState, useEffect } from 'react';
+
+// Custom hook for API calls
+function useApi(url) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch(url);
+                const result = await response.json();
+                setData(result);
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [url]);
+
+    return { data, loading, error };
+}
+
+// Custom hook for local storage
+function useLocalStorage(key, initialValue) {
+    const [storedValue, setStoredValue] = useState(() => {
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            return initialValue;
+        }
+    });
+
+    const setValue = (value) => {
+        try {
+            setStoredValue(value);
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    return [storedValue, setValue];
+}
+
+FORMS AND EVENT HANDLING
+
+Controlled Components:
+function ContactForm() {
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        message: ''
+    });
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: value
+        }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        console.log('Form submitted:', formData);
+        // Handle form submission
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Name"
+                required
+            />
+            <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="Email"
+                required
+            />
+            <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                placeholder="Message"
+                required
+            />
+            <button type="submit">Submit</button>
+        </form>
+    );
+}
+
+Form Validation:
+function ValidatedForm() {
+    const [formData, setFormData] = useState({ email: '', password: '' });
+    const [errors, setErrors] = useState({});
+
+    const validateForm = () => {
+        const newErrors = {};
+
+        if (!formData.email) {
+            newErrors.email = 'Email is required';
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+            newErrors.email = 'Email is invalid';
+        }
+
+        if (!formData.password) {
+            newErrors.password = 'Password is required';
+        } else if (formData.password.length < 6) {
+            newErrors.password = 'Password must be at least 6 characters';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (validateForm()) {
+            console.log('Form is valid:', formData);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <div>
+                <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="Email"
+                />
+                {errors.email && <span className="error">{errors.email}</span>}
+            </div>
+            <div>
+                <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    placeholder="Password"
+                />
+                {errors.password && <span className="error">{errors.password}</span>}
+            </div>
+            <button type="submit">Submit</button>
+        </form>
+    );
+}
+
+COMPONENT PATTERNS
+
+Higher-Order Components (HOCs):
+function withAuth(WrappedComponent) {
+    return function AuthenticatedComponent(props) {
+        const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+        useEffect(() => {
+            // Check authentication status
+            const token = localStorage.getItem('token');
+            setIsAuthenticated(!!token);
+        }, []);
+
+        if (!isAuthenticated) {
+            return <div>Please log in to access this page.</div>;
+        }
+
+        return <WrappedComponent {...props} />;
+    };
+}
+
+// Usage
+const ProtectedDashboard = withAuth(Dashboard);
+
+Render Props:
+function DataProvider({ render }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchData().then(result => {
+            setData(result);
+            setLoading(false);
+        });
+    }, []);
+
+    return render({ data, loading });
+}
+
+// Usage
+function App() {
+    return (
+        <DataProvider
+            render={({ data, loading }) => (
+                <div>
+                    {loading ? <div>Loading...</div> : <div>{data}</div>}
+                </div>
+            )}
+        />
+    );
+}
+
+NEXT.JS FUNDAMENTALS
+
+Installation:
+npx create-next-app@latest my-app
+cd my-app
+npm run dev
+
+# With TypeScript
+npx create-next-app@latest my-app --typescript
+
+Project Structure:
+my-app/
+├── pages/
+│   ├── api/
+│   ├── _app.js
+│   ├── _document.js
+│   ├── index.js
+│   └── about.js
+├── public/
+├── styles/
+├── components/
+├── lib/
+├── utils/
+└── package.json
+
+Pages and Routing:
+// pages/index.js
+export default function Home() {
+    return <h1>Welcome to Next.js!</h1>;
+}
+
+// pages/about.js
+export default function About() {
+    return <h1>About Us</h1>;
+}
+
+// pages/products/[id].js - Dynamic routing
+import { useRouter } from 'next/router';
+
+export default function Product() {
+    const router = useRouter();
+    const { id } = router.query;
+
+    return <h1>Product: {id}</h1>;
+}
+
+// pages/blog/[...slug].js - Catch-all routes
+export default function BlogPost() {
+    const router = useRouter();
+    const { slug } = router.query;
+
+    return <h1>Blog: {slug?.join('/')}</h1>;
+}
+
+API Routes:
+// pages/api/hello.js
+export default function handler(req, res) {
+    res.status(200).json({ message: 'Hello from Next.js API!' });
+}
+
+// pages/api/users/[id].js
+export default function handler(req, res) {
+    const { id } = req.query;
+    const { method } = req;
+
+    switch (method) {
+        case 'GET':
+            res.status(200).json({ id, name: 'John Doe' });
+            break;
+        case 'PUT':
+            // Update user
+            res.status(200).json({ id, updated: true });
+            break;
+        case 'DELETE':
+            // Delete user
+            res.status(200).json({ id, deleted: true });
+            break;
+        default:
+            res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+            res.status(405).end(`Method ${method} Not Allowed`);
+    }
+}
+
+DATA FETCHING
+
+Static Site Generation (SSG):
+// getStaticProps - runs at build time
+export async function getStaticProps() {
+    const res = await fetch('https://api.example.com/posts');
+    const posts = await res.json();
+
+    return {
+        props: {
+            posts,
+        },
+        revalidate: 60, // Regenerate page every 60 seconds
+    };
+}
+
+export default function Posts({ posts }) {
+    return (
+        <div>
+            {posts.map(post => (
+                <div key={post.id}>
+                    <h2>{post.title}</h2>
+                    <p>{post.content}</p>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+// getStaticPaths - for dynamic routes
+export async function getStaticPaths() {
+    const res = await fetch('https://api.example.com/posts');
+    const posts = await res.json();
+
+    const paths = posts.map(post => ({
+        params: { id: post.id.toString() }
+    }));
+
+    return {
+        paths,
+        fallback: false // or true, 'blocking'
+    };
+}
+
+export async function getStaticProps({ params }) {
+    const res = await fetch(`https://api.example.com/posts/${params.id}`);
+    const post = await res.json();
+
+    return {
+        props: {
+            post,
+        },
+    };
+}
+
+Server-Side Rendering (SSR):
+// getServerSideProps - runs on every request
+export async function getServerSideProps(context) {
+    const { req, res, query } = context;
+
+    const response = await fetch(`https://api.example.com/data?id=${query.id}`);
+    const data = await response.json();
+
+    return {
+        props: {
+            data,
+        },
+    };
+}
+
+export default function Page({ data }) {
+    return <div>{JSON.stringify(data)}</div>;
+}
+
+Client-Side Data Fetching:
+import useSWR from 'swr';
+
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+function Profile() {
+    const { data, error } = useSWR('/api/user', fetcher);
+
+    if (error) return <div>Failed to load</div>;
+    if (!data) return <div>Loading...</div>;
+
+    return <div>Hello {data.name}!</div>;
+}
+
+STYLING
+
+CSS Modules:
+// styles/Home.module.css
+.container {
+    padding: 0 2rem;
+}
+
+.main {
+    min-height: 100vh;
+    padding: 4rem 0;
+}
+
+// components/Home.js
+import styles from '../styles/Home.module.css';
+
+export default function Home() {
+    return (
+        <div className={styles.container}>
+            <main className={styles.main}>
+                <h1>Welcome to Next.js!</h1>
+            </main>
+        </div>
+    );
+}
+
+Styled Components:
+import styled from 'styled-components';
+
+const Button = styled.button`
+    background: ${props => props.primary ? 'blue' : 'white'};
+    color: ${props => props.primary ? 'white' : 'blue'};
+    font-size: 1em;
+    margin: 1em;
+    padding: 0.25em 1em;
+    border: 2px solid blue;
+    border-radius: 3px;
+    cursor: pointer;
+
+    &:hover {
+        background: ${props => props.primary ? 'darkblue' : 'lightblue'};
+    }
+`;
+
+// Usage
+function App() {
+    return (
+        <div>
+            <Button>Normal</Button>
+            <Button primary>Primary</Button>
+        </div>
+    );
+}
+
+Tailwind CSS:
+// Install: npm install tailwindcss postcss autoprefixer
+// Configure: npx tailwindcss init -p
+
+function Hero() {
+    return (
+        <div className="bg-blue-500 text-white p-8 rounded-lg shadow-lg">
+            <h1 className="text-4xl font-bold mb-4">Welcome!</h1>
+            <p className="text-lg">This is styled with Tailwind CSS</p>
+            <button className="mt-4 bg-white text-blue-500 px-4 py-2 rounded hover:bg-gray-100">
+                Get Started
+            </button>
+        </div>
+    );
+}
+
+PERFORMANCE OPTIMIZATION
+
+React.memo:
+import React, { memo } from 'react';
+
+const ExpensiveComponent = memo(function ExpensiveComponent({ data }) {
+    // Expensive calculations
+    return <div>{data}</div>;
+});
+
+// Component will only re-render if props change
+
+useMemo and useCallback:
+import React, { useMemo, useCallback } from 'react';
+
+function ExpensiveList({ items, filter }) {
+    // Memoize expensive calculations
+    const filteredItems = useMemo(() => {
+        return items.filter(item => item.name.includes(filter));
+    }, [items, filter]);
+
+    // Memoize callback functions
+    const handleClick = useCallback((id) => {
+        console.log('Clicked item:', id);
+    }, []);
+
+    return (
+        <ul>
+            {filteredItems.map(item => (
+                <li key={item.id} onClick={() => handleClick(item.id)}>
+                    {item.name}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+Next.js Image Optimization:
+import Image from 'next/image';
+
+function Gallery() {
+    return (
+        <div>
+            <Image
+                src="/hero.jpg"
+                alt="Hero image"
+                width={800}
+                height={600}
+                priority // Load this image first
+            />
+            <Image
+                src="/profile.jpg"
+                alt="Profile"
+                width={200}
+                height={200}
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,..."
+            />
+        </div>
+    );
+}
+
+Dynamic Imports:
+import dynamic from 'next/dynamic';
+
+const DynamicComponent = dynamic(() => import('../components/heavy-component'), {
+    loading: () => <p>Loading...</p>,
+    ssr: false // Disable server-side rendering for this component
+});
+
+function Page() {
+    return (
+        <div>
+            <h1>My Page</h1>
+            <DynamicComponent />
+        </div>
+    );
+}
+
+TESTING
+
+React Testing Library:
+import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import Button from '../components/Button';
+
+test('renders button with text', () => {
+    render(<Button>Click me</Button>);
+    const buttonElement = screen.getByText(/click me/i);
+    expect(buttonElement).toBeInTheDocument();
+});
+
+test('calls onClick when clicked', () => {
+    const handleClick = jest.fn();
+    render(<Button onClick={handleClick}>Click me</Button>);
+
+    fireEvent.click(screen.getByText(/click me/i));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+});
+
+Jest Configuration:
+// jest.config.js
+const nextJest = require('next/jest');
+
+const createJestConfig = nextJest({
+    dir: './',
+});
+
+const customJestConfig = {
+    setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+    moduleNameMapping: {
+        '^@/components/(.*)$': '<rootDir>/components/$1',
+        '^@/pages/(.*)$': '<rootDir>/pages/$1',
+    },
+    testEnvironment: 'jest-environment-jsdom',
+};
+
+module.exports = createJestConfig(customJestConfig);
+
+DEPLOYMENT
+
+Next.js Deployment:
+# Build for production
+npm run build
+npm start
+
+# Deploy to Vercel (recommended)
+npm i -g vercel
+vercel
+
+# Deploy to Netlify
+npm run build
+npm run export # for static export
+
+# Docker deployment
+FROM node:16-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+
+Environment Variables:
+// .env.local
+NEXT_PUBLIC_API_URL=https://api.example.com
+DATABASE_URL=postgresql://...
+SECRET_KEY=your-secret-key
+
+// Usage in code
+const apiUrl = process.env.NEXT_PUBLIC_API_URL; // Client-side
+const dbUrl = process.env.DATABASE_URL; // Server-side only
+
+BEST PRACTICES
+
+Component Organization:
+// components/Button/index.js
+export { default } from './Button';
+
+// components/Button/Button.js
+import styles from './Button.module.css';
+
+export default function Button({ children, variant = 'primary', ...props }) {
+    return (
+        <button className={`${styles.button} ${styles[variant]}`} {...props}>
+            {children}
+        </button>
+    );
+}
+
+Error Boundaries:
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('Error caught:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return <h1>Something went wrong.</h1>;
+        }
+
+        return this.props.children;
+    }
+}
+
+// Usage
+function App() {
+    return (
+        <ErrorBoundary>
+            <MyComponent />
+        </ErrorBoundary>
+    );
+}
+
+State Management Patterns:
+// Context + Reducer for complex state
+const AppContext = createContext();
+
+function appReducer(state, action) {
+    switch (action.type) {
+        case 'SET_USER':
+            return { ...state, user: action.payload };
+        case 'SET_LOADING':
+            return { ...state, loading: action.payload };
+        default:
+            return state;
+    }
+}
+
+function AppProvider({ children }) {
+    const [state, dispatch] = useReducer(appReducer, {
+        user: null,
+        loading: false
+    });
+
+    return (
+        <AppContext.Provider value={{ state, dispatch }}>
+            {children}
+        </AppContext.Provider>
+    );
+}

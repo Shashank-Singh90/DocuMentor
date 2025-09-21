@@ -1,1 +1,0 @@
-﻿"DocuMentor generation module"

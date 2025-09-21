@@ -1,0 +1,1038 @@
+MongoDB Complete NoSQL Database and Aggregation Documentation
+
+MongoDB is a document-oriented NoSQL database that stores data in flexible, JSON-like documents called BSON.
+
+INSTALLATION AND SETUP
+
+Installation:
+# Ubuntu/Debian
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+# CentOS/RHEL
+sudo yum install -y mongodb-org
+
+# macOS (Homebrew)
+brew tap mongodb/brew
+brew install mongodb-community
+
+# Windows
+# Download installer from mongodb.com
+
+Starting MongoDB:
+# Linux/macOS
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# macOS with Homebrew
+brew services start mongodb-community
+
+# Manual start
+mongod --dbpath /path/to/data/directory
+
+MongoDB Shell:
+# Connect to MongoDB
+mongosh
+
+# Connect to specific database
+mongosh "mongodb://localhost:27017/mydb"
+
+# Connect with authentication
+mongosh "mongodb://username:password@localhost:27017/mydb"
+
+BASIC OPERATIONS
+
+Database Operations:
+// Show databases
+show dbs
+
+// Switch to database (creates if doesn't exist)
+use myapp
+
+// Show current database
+db
+
+// Drop database
+db.dropDatabase()
+
+Collection Operations:
+// Show collections
+show collections
+
+// Create collection
+db.createCollection("users")
+
+// Create collection with options
+db.createCollection("products", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["name", "price"],
+            properties: {
+                name: { bsonType: "string" },
+                price: { bsonType: "number", minimum: 0 }
+            }
+        }
+    }
+})
+
+// Drop collection
+db.users.drop()
+
+CRUD OPERATIONS
+
+Insert Documents:
+// Insert single document
+db.users.insertOne({
+    name: "John Doe",
+    email: "john@example.com",
+    age: 30,
+    address: {
+        street: "123 Main St",
+        city: "New York",
+        zipcode: "10001"
+    },
+    hobbies: ["reading", "swimming"],
+    createdAt: new Date()
+})
+
+// Insert multiple documents
+db.users.insertMany([
+    {
+        name: "Jane Smith",
+        email: "jane@example.com",
+        age: 28,
+        skills: ["JavaScript", "Python", "MongoDB"]
+    },
+    {
+        name: "Bob Johnson",
+        email: "bob@example.com",
+        age: 35,
+        department: "Engineering"
+    }
+])
+
+// Insert with specific _id
+db.users.insertOne({
+    _id: ObjectId("64a7b2c1f8e4a2b1c9d3e4f5"),
+    name: "Alice Brown",
+    email: "alice@example.com"
+})
+
+Find Documents:
+// Find all documents
+db.users.find()
+
+// Find with pretty formatting
+db.users.find().pretty()
+
+// Find specific document
+db.users.findOne({ name: "John Doe" })
+
+// Find with conditions
+db.users.find({ age: { $gte: 30 } })
+
+// Find with multiple conditions
+db.users.find({
+    age: { $gte: 25, $lt: 35 },
+    name: { $regex: /^J/ }
+})
+
+// Find with projection
+db.users.find(
+    { age: { $gte: 30 } },
+    { name: 1, email: 1, _id: 0 }
+)
+
+// Find with sort
+db.users.find().sort({ age: -1, name: 1 })
+
+// Find with limit and skip
+db.users.find().sort({ age: -1 }).limit(5).skip(10)
+
+// Find nested fields
+db.users.find({ "address.city": "New York" })
+
+// Find in arrays
+db.users.find({ hobbies: "reading" })
+db.users.find({ hobbies: { $in: ["reading", "writing"] } })
+
+Query Operators:
+// Comparison operators
+db.users.find({ age: { $eq: 30 } })      // Equal
+db.users.find({ age: { $ne: 30 } })      // Not equal
+db.users.find({ age: { $gt: 25 } })      // Greater than
+db.users.find({ age: { $gte: 25 } })     // Greater than or equal
+db.users.find({ age: { $lt: 35 } })      // Less than
+db.users.find({ age: { $lte: 35 } })     // Less than or equal
+db.users.find({ age: { $in: [25, 30, 35] } })    // In array
+db.users.find({ age: { $nin: [25, 30] } })       // Not in array
+
+// Logical operators
+db.users.find({
+    $and: [
+        { age: { $gte: 25 } },
+        { age: { $lt: 35 } }
+    ]
+})
+
+db.users.find({
+    $or: [
+        { age: { $lt: 25 } },
+        { department: "Engineering" }
+    ]
+})
+
+db.users.find({ age: { $not: { $lt: 30 } } })
+
+// Element operators
+db.users.find({ department: { $exists: true } })
+db.users.find({ age: { $type: "number" } })
+
+// Array operators
+db.users.find({ skills: { $all: ["JavaScript", "MongoDB"] } })
+db.users.find({ skills: { $size: 3 } })
+db.users.find({
+    hobbies: {
+        $elemMatch: { $in: ["reading", "writing"] }
+    }
+})
+
+Update Documents:
+// Update single document
+db.users.updateOne(
+    { name: "John Doe" },
+    { $set: { age: 31, lastUpdated: new Date() } }
+)
+
+// Update multiple documents
+db.users.updateMany(
+    { department: "Engineering" },
+    { $set: { bonus: 5000 } }
+)
+
+// Replace document
+db.users.replaceOne(
+    { name: "John Doe" },
+    {
+        name: "John Doe",
+        email: "john.doe@newcompany.com",
+        age: 31,
+        position: "Senior Developer"
+    }
+)
+
+// Update operators
+db.users.updateOne(
+    { name: "Jane Smith" },
+    {
+        $set: { age: 29 },                    // Set field value
+        $unset: { temporary: "" },            // Remove field
+        $inc: { loginCount: 1 },              // Increment number
+        $mul: { salary: 1.1 },                // Multiply number
+        $min: { minScore: 85 },               // Set to minimum value
+        $max: { maxScore: 95 },               // Set to maximum value
+        $currentDate: { lastLogin: true },    // Set current date
+        $rename: { "addr": "address" }        // Rename field
+    }
+)
+
+// Array update operators
+db.users.updateOne(
+    { name: "Jane Smith" },
+    {
+        $push: { skills: "React" },                    // Add to array
+        $pull: { skills: "OldSkill" },                // Remove from array
+        $addToSet: { hobbies: "photography" },        // Add unique to array
+        $pop: { hobbies: 1 },                         // Remove last element
+        $pullAll: { skills: ["PHP", "Ruby"] }        // Remove multiple values
+    }
+)
+
+// Update array elements
+db.users.updateOne(
+    { "skills": "JavaScript" },
+    { $set: { "skills.$": "Advanced JavaScript" } }
+)
+
+// Update nested fields
+db.users.updateOne(
+    { name: "John Doe" },
+    { $set: { "address.street": "456 Oak Ave" } }
+)
+
+// Upsert (update or insert)
+db.users.updateOne(
+    { email: "new@example.com" },
+    {
+        $set: {
+            name: "New User",
+            age: 25
+        }
+    },
+    { upsert: true }
+)
+
+Delete Documents:
+// Delete single document
+db.users.deleteOne({ name: "John Doe" })
+
+// Delete multiple documents
+db.users.deleteMany({ age: { $lt: 25 } })
+
+// Delete all documents in collection
+db.users.deleteMany({})
+
+INDEXING
+
+Creating Indexes:
+// Single field index
+db.users.createIndex({ email: 1 })
+
+// Compound index
+db.users.createIndex({ age: 1, name: -1 })
+
+// Text index
+db.users.createIndex({ name: "text", bio: "text" })
+
+// Multikey index (for arrays)
+db.users.createIndex({ skills: 1 })
+
+// Partial index
+db.users.createIndex(
+    { email: 1 },
+    { partialFilterExpression: { age: { $gte: 18 } } }
+)
+
+// Sparse index
+db.users.createIndex({ phone: 1 }, { sparse: true })
+
+// TTL index (expires documents)
+db.sessions.createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 3600 }
+)
+
+// Unique index
+db.users.createIndex({ email: 1 }, { unique: true })
+
+// Background index creation
+db.users.createIndex({ age: 1 }, { background: true })
+
+Index Management:
+// List indexes
+db.users.getIndexes()
+
+// Drop specific index
+db.users.dropIndex({ email: 1 })
+db.users.dropIndex("email_1")
+
+// Drop all indexes except _id
+db.users.dropIndexes()
+
+// Reindex collection
+db.users.reIndex()
+
+// Get index usage statistics
+db.users.aggregate([{ $indexStats: {} }])
+
+AGGREGATION PIPELINE
+
+Basic Aggregation:
+// Match stage
+db.users.aggregate([
+    { $match: { age: { $gte: 25 } } }
+])
+
+// Project stage
+db.users.aggregate([
+    { $project: {
+        name: 1,
+        email: 1,
+        ageGroup: {
+            $cond: {
+                if: { $gte: ["$age", 30] },
+                then: "Senior",
+                else: "Junior"
+            }
+        }
+    }}
+])
+
+// Group stage
+db.users.aggregate([
+    {
+        $group: {
+            _id: "$department",
+            count: { $sum: 1 },
+            avgAge: { $avg: "$age" },
+            maxSalary: { $max: "$salary" },
+            minAge: { $min: "$age" }
+        }
+    }
+])
+
+// Sort stage
+db.users.aggregate([
+    { $match: { age: { $gte: 25 } } },
+    { $sort: { age: -1, name: 1 } }
+])
+
+// Limit and skip
+db.users.aggregate([
+    { $sort: { age: -1 } },
+    { $skip: 10 },
+    { $limit: 5 }
+])
+
+Advanced Aggregation:
+// Unwind arrays
+db.users.aggregate([
+    { $unwind: "$skills" },
+    { $group: {
+        _id: "$skills",
+        count: { $sum: 1 }
+    }},
+    { $sort: { count: -1 } }
+])
+
+// Lookup (join)
+db.orders.aggregate([
+    {
+        $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "userInfo"
+        }
+    },
+    { $unwind: "$userInfo" },
+    {
+        $project: {
+            orderTotal: 1,
+            userName: "$userInfo.name",
+            userEmail: "$userInfo.email"
+        }
+    }
+])
+
+// Add fields
+db.users.aggregate([
+    {
+        $addFields: {
+            fullName: { $concat: ["$firstName", " ", "$lastName"] },
+            isAdult: { $gte: ["$age", 18] }
+        }
+    }
+])
+
+// Bucket aggregation
+db.users.aggregate([
+    {
+        $bucket: {
+            groupBy: "$age",
+            boundaries: [0, 25, 35, 50, 100],
+            default: "Other",
+            output: {
+                count: { $sum: 1 },
+                users: { $push: "$name" }
+            }
+        }
+    }
+])
+
+// Facet aggregation
+db.users.aggregate([
+    {
+        $facet: {
+            ageDistribution: [
+                {
+                    $bucket: {
+                        groupBy: "$age",
+                        boundaries: [0, 25, 35, 50, 100],
+                        default: "Other",
+                        output: { count: { $sum: 1 } }
+                    }
+                }
+            ],
+            departmentStats: [
+                { $group: { _id: "$department", count: { $sum: 1 } } }
+            ]
+        }
+    }
+])
+
+// Text search
+db.users.aggregate([
+    { $match: { $text: { $search: "javascript developer" } } },
+    { $sort: { score: { $meta: "textScore" } } }
+])
+
+String Operations:
+db.users.aggregate([
+    {
+        $project: {
+            name: 1,
+            upperName: { $toUpper: "$name" },
+            nameLength: { $strLenCP: "$name" },
+            initials: {
+                $concat: [
+                    { $substr: ["$firstName", 0, 1] },
+                    { $substr: ["$lastName", 0, 1] }
+                ]
+            }
+        }
+    }
+])
+
+Date Operations:
+db.users.aggregate([
+    {
+        $project: {
+            name: 1,
+            birthYear: { $year: "$birthDate" },
+            age: {
+                $subtract: [
+                    { $year: new Date() },
+                    { $year: "$birthDate" }
+                ]
+            },
+            isWeekend: {
+                $in: [{ $dayOfWeek: "$createdAt" }, [1, 7]]
+            }
+        }
+    }
+])
+
+Array Operations:
+db.users.aggregate([
+    {
+        $project: {
+            name: 1,
+            skillCount: { $size: "$skills" },
+            hasJavaScript: { $in: ["JavaScript", "$skills"] },
+            firstSkill: { $arrayElemAt: ["$skills", 0] },
+            lastSkill: { $arrayElemAt: ["$skills", -1] }
+        }
+    }
+])
+
+Conditional Operations:
+db.users.aggregate([
+    {
+        $project: {
+            name: 1,
+            category: {
+                $switch: {
+                    branches: [
+                        { case: { $lt: ["$age", 25] }, then: "Young" },
+                        { case: { $lt: ["$age", 35] }, then: "Adult" },
+                        { case: { $lt: ["$age", 50] }, then: "Middle-aged" }
+                    ],
+                    default: "Senior"
+                }
+            },
+            status: {
+                $cond: {
+                    if: { $gte: ["$salary", 50000] },
+                    then: "High earner",
+                    else: "Regular earner"
+                }
+            }
+        }
+    }
+])
+
+SCHEMA DESIGN
+
+Document Structure:
+// Embedded documents
+{
+    _id: ObjectId("..."),
+    name: "John Doe",
+    email: "john@example.com",
+    address: {
+        street: "123 Main St",
+        city: "New York",
+        state: "NY",
+        zipcode: "10001"
+    },
+    phones: [
+        { type: "home", number: "555-1234" },
+        { type: "work", number: "555-5678" }
+    ]
+}
+
+// Reference documents
+{
+    _id: ObjectId("..."),
+    title: "MongoDB Tutorial",
+    content: "...",
+    author: ObjectId("user_id_here"),
+    tags: ["mongodb", "database", "nosql"],
+    comments: [
+        {
+            user: ObjectId("commenter_id"),
+            text: "Great tutorial!",
+            date: ISODate("...")
+        }
+    ]
+}
+
+Design Patterns:
+// One-to-One: Embed
+{
+    _id: ObjectId("..."),
+    name: "John Doe",
+    profile: {
+        bio: "Software developer",
+        avatar: "avatar.jpg",
+        preferences: {
+            theme: "dark",
+            notifications: true
+        }
+    }
+}
+
+// One-to-Many: Embed when small, reference when large
+// Small array - embed
+{
+    _id: ObjectId("..."),
+    title: "Blog Post",
+    comments: [
+        { author: "John", text: "Great post!" },
+        { author: "Jane", text: "Thanks for sharing!" }
+    ]
+}
+
+// Large array - reference
+{
+    _id: ObjectId("..."),
+    title: "Popular Blog Post",
+    commentCount: 1500
+}
+// Separate comments collection
+{
+    _id: ObjectId("..."),
+    postId: ObjectId("..."),
+    author: "John",
+    text: "One of many comments"
+}
+
+// Many-to-Many: Array of references
+{
+    _id: ObjectId("..."),
+    name: "John Doe",
+    skills: [
+        ObjectId("javascript_skill_id"),
+        ObjectId("mongodb_skill_id"),
+        ObjectId("nodejs_skill_id")
+    ]
+}
+
+TRANSACTIONS
+
+Multi-Document Transactions:
+// Start session
+const session = db.getMongo().startSession()
+
+try {
+    session.startTransaction()
+
+    // Operations within transaction
+    db.accounts.updateOne(
+        { _id: "account1" },
+        { $inc: { balance: -100 } },
+        { session: session }
+    )
+
+    db.accounts.updateOne(
+        { _id: "account2" },
+        { $inc: { balance: 100 } },
+        { session: session }
+    )
+
+    // Commit transaction
+    session.commitTransaction()
+} catch (error) {
+    // Abort transaction on error
+    session.abortTransaction()
+    throw error
+} finally {
+    session.endSession()
+}
+
+// Using with callback
+session.withTransaction(() => {
+    db.orders.insertOne({
+        _id: ObjectId(),
+        userId: "user123",
+        items: ["item1", "item2"],
+        total: 150.00
+    }, { session })
+
+    db.inventory.updateMany(
+        { _id: { $in: ["item1", "item2"] } },
+        { $inc: { quantity: -1 } },
+        { session }
+    )
+})
+
+REPLICA SETS
+
+Configuration:
+// Initialize replica set
+rs.initiate({
+    _id: "myReplicaSet",
+    members: [
+        { _id: 0, host: "mongodb1.example.com:27017" },
+        { _id: 1, host: "mongodb2.example.com:27017" },
+        { _id: 2, host: "mongodb3.example.com:27017" }
+    ]
+})
+
+// Add member
+rs.add("mongodb4.example.com:27017")
+
+// Remove member
+rs.remove("mongodb4.example.com:27017")
+
+// Check replica set status
+rs.status()
+
+// Check replica set configuration
+rs.conf()
+
+Read Preferences:
+// Primary (default)
+db.users.find().readPref("primary")
+
+// Secondary
+db.users.find().readPref("secondary")
+
+// Primary preferred
+db.users.find().readPref("primaryPreferred")
+
+// Secondary preferred
+db.users.find().readPref("secondaryPreferred")
+
+// Nearest
+db.users.find().readPref("nearest")
+
+SHARDING
+
+Shard Key Selection:
+// Enable sharding on database
+sh.enableSharding("myapp")
+
+// Shard collection with hashed shard key
+sh.shardCollection("myapp.users", { userId: "hashed" })
+
+// Shard collection with compound shard key
+sh.shardCollection("myapp.orders", { customerId: 1, orderDate: 1 })
+
+// Shard collection with range-based sharding
+sh.shardCollection("myapp.logs", { timestamp: 1 })
+
+Shard Management:
+// List shards
+sh.status()
+
+// Add shard
+sh.addShard("shard1/mongodb1.example.com:27017")
+
+// Move chunk
+sh.moveChunk("myapp.users", { userId: "user123" }, "shard2")
+
+// Split chunk
+sh.splitAt("myapp.users", { userId: "user500" })
+
+GRIDFS
+
+Storing Large Files:
+// Using mongofiles utility
+mongofiles put large_file.pdf
+
+// Using MongoDB shell
+const bucket = new GridFSBucket(db)
+
+// Upload file
+const uploadStream = bucket.openUploadStream("filename.pdf", {
+    metadata: {
+        author: "John Doe",
+        tags: ["document", "pdf"]
+    }
+})
+
+// Download file
+const downloadStream = bucket.openDownloadStreamByName("filename.pdf")
+
+// List files
+db.fs.files.find()
+
+// Delete file
+bucket.delete(ObjectId("file_id"))
+
+SECURITY
+
+Authentication:
+// Create admin user
+use admin
+db.createUser({
+    user: "admin",
+    pwd: "securePassword",
+    roles: ["userAdminAnyDatabase", "readWriteAnyDatabase"]
+})
+
+// Create database user
+use myapp
+db.createUser({
+    user: "appuser",
+    pwd: "appPassword",
+    roles: ["readWrite"]
+})
+
+// Connect with authentication
+mongosh "mongodb://appuser:appPassword@localhost:27017/myapp"
+
+Authorization:
+// Built-in roles
+"read", "readWrite", "dbAdmin", "userAdmin", "clusterAdmin"
+
+// Custom role
+db.createRole({
+    role: "analyticsReader",
+    privileges: [
+        {
+            resource: { db: "myapp", collection: "analytics" },
+            actions: ["find", "listIndexes"]
+        }
+    ],
+    roles: []
+})
+
+// Grant role to user
+db.grantRolesToUser("username", ["analyticsReader"])
+
+SSL/TLS:
+// mongod.conf
+net:
+    ssl:
+        mode: requireSSL
+        PEMKeyFile: /path/to/server.pem
+        CAFile: /path/to/ca.pem
+
+// Connect with SSL
+mongosh "mongodb://localhost:27017/myapp?ssl=true"
+
+Field Level Encryption:
+// Create data encryption key
+use encryption
+db.dataKeys.insertOne({
+    _id: UUID(),
+    keyMaterial: BinData(0, "..."),
+    creationDate: new Date(),
+    updateDate: new Date(),
+    status: 0,
+    masterKey: {
+        provider: "local",
+        key: BinData(0, "...")
+    }
+})
+
+PERFORMANCE OPTIMIZATION
+
+Query Optimization:
+// Use explain
+db.users.find({ age: { $gte: 30 } }).explain("executionStats")
+
+// Create appropriate indexes
+db.users.createIndex({ age: 1, name: 1 })
+
+// Use projection to limit returned fields
+db.users.find(
+    { age: { $gte: 30 } },
+    { name: 1, email: 1, _id: 0 }
+)
+
+// Use limit for large result sets
+db.users.find().sort({ createdAt: -1 }).limit(20)
+
+Memory Management:
+// Check current memory usage
+db.runCommand({ serverStatus: 1 }).mem
+
+// Set cache size (WiredTiger)
+storage:
+    wiredTiger:
+        engineConfig:
+            cacheSizeGB: 4
+
+Connection Pooling:
+// Connection string with pool options
+"mongodb://localhost:27017/myapp?maxPoolSize=20&minPoolSize=5"
+
+MONITORING AND DEBUGGING
+
+Database Profiling:
+// Enable profiling for slow operations
+db.setProfilingLevel(2, { slowms: 100 })
+
+// Query profiling data
+db.system.profile.find().limit(5).sort({ ts: -1 }).pretty()
+
+// Disable profiling
+db.setProfilingLevel(0)
+
+Server Statistics:
+// Server status
+db.runCommand({ serverStatus: 1 })
+
+// Database statistics
+db.stats()
+
+// Collection statistics
+db.users.stats()
+
+// Current operations
+db.currentOp()
+
+// Kill operation
+db.killOp(operationId)
+
+Logging:
+// Enable query logging
+db.setLogLevel(2, "query")
+
+// View logs
+db.adminCommand({ getLog: "global" })
+
+BACKUP AND RESTORE
+
+mongodump and mongorestore:
+// Backup entire database
+mongodump --db myapp --out /backup/directory
+
+// Backup specific collection
+mongodump --db myapp --collection users --out /backup/directory
+
+// Backup with query
+mongodump --db myapp --collection users --query '{"active": true}' --out /backup/directory
+
+// Restore database
+mongorestore --db myapp /backup/directory/myapp
+
+// Restore collection
+mongorestore --db myapp --collection users /backup/directory/myapp/users.bson
+
+Point-in-Time Recovery:
+// Enable oplog
+mongod --replSet myReplicaSet --oplogSize 1024
+
+// Backup with oplog
+mongodump --oplog --out /backup/directory
+
+// Restore to specific time
+mongorestore --oplogReplay --oplogLimit 1234567890:1 /backup/directory
+
+ADMINISTRATION
+
+Configuration:
+# mongod.conf (YAML format)
+systemLog:
+    destination: file
+    path: /var/log/mongodb/mongod.log
+    logAppend: true
+
+storage:
+    dbPath: /var/lib/mongodb
+    journal:
+        enabled: true
+
+processManagement:
+    fork: true
+    pidFilePath: /var/run/mongodb/mongod.pid
+
+net:
+    port: 27017
+    bindIp: 127.0.0.1
+
+replication:
+    replSetName: myReplicaSet
+
+Database Maintenance:
+// Compact collection
+db.runCommand({ compact: "users" })
+
+// Repair database
+db.runCommand({ repairDatabase: 1 })
+
+// Validate collection
+db.users.validate()
+
+// Get database version
+db.version()
+
+// Check feature compatibility
+db.adminCommand({ getParameter: 1, featureCompatibilityVersion: 1 })
+
+User Management:
+// List users
+db.getUsers()
+
+// Update user
+db.updateUser("username", {
+    pwd: "newPassword",
+    roles: ["readWrite", "dbAdmin"]
+})
+
+// Drop user
+db.dropUser("username")
+
+BEST PRACTICES
+
+Schema Design:
+- Embed for one-to-one and one-to-few relationships
+- Reference for one-to-many and many-to-many relationships
+- Consider query patterns when designing schema
+- Avoid deeply nested documents (max 100 levels)
+- Use appropriate data types
+- Design for your application's read/write patterns
+
+Indexing:
+- Create indexes to support your queries
+- Use compound indexes for multiple field queries
+- Avoid too many indexes (impacts write performance)
+- Use partial indexes for conditional queries
+- Monitor index usage with $indexStats
+
+Query Performance:
+- Use explain() to analyze query performance
+- Limit result sets with limit() and projection
+- Use aggregation pipeline for complex data processing
+- Avoid large sorts without indexes
+- Use covered queries when possible
+
+Security:
+- Always enable authentication in production
+- Use role-based access control
+- Enable SSL/TLS for network encryption
+- Regularly update MongoDB to latest stable version
+- Use network firewalls and VPCs
+- Audit database access
+
+Monitoring:
+- Set up database profiling for slow queries
+- Monitor memory usage and adjust cache size
+- Track connection pool usage
+- Set up alerting for critical metrics
+- Use MongoDB Compass or other monitoring tools
+
+Operations:
+- Regular backups with mongodump or snapshots
+- Test restore procedures
+- Use replica sets for high availability
+- Plan capacity based on growth projections
+- Document your schema and operations procedures

@@ -1,10 +1,42 @@
-﻿langchain==0.3.27
-langchain-community==0.3.29
-langchain-ollama==0.3.8
-chromadb==1.1.0
-pypdf==6.0.0
-docx2txt==0.9
-python-dotenv==1.1.1
-streamlit==1.29.0
-sentence-transformers
-transformers
+# RAG System Professional Requirements
+# Core dependencies for production use
+
+# Web Framework
+streamlit>=1.29.0
+
+# Vector Database
+chromadb>=1.1.0
+
+# Text Processing & NLP
+langchain>=0.3.27
+langchain-community>=0.3.29
+sentence-transformers>=5.1.0
+transformers>=4.56.0
+
+# Data Processing
+numpy>=1.26.0
+pandas>=2.3.0
+
+# Configuration
+pydantic>=2.11.0
+pydantic-settings>=2.10.0
+python-dotenv>=1.0.0
+
+# File Processing
+pypdf>=6.0.0
+python-docx>=1.1.0
+
+# HTTP & API
+requests>=2.32.0
+httpx>=0.28.0
+
+# Development & Monitoring
+tqdm>=4.67.0
+rich>=13.9.0
+
+# Enhanced Features
+openai>=1.0.0
+google-generativeai>=0.3.0
+python-pptx>=0.6.0
+openpyxl>=3.1.0
+xlrd>=2.0.0

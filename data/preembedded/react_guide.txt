@@ -1,0 +1,261 @@
+React JavaScript Library Documentation
+
+React is a JavaScript library for building user interfaces, particularly web applications.
+
+Key Concepts:
+- Components: Reusable pieces of UI
+- JSX: JavaScript syntax extension for writing HTML-like code
+- Virtual DOM: Efficient rendering system
+- State: Component data that can change over time
+- Props: Data passed from parent to child components
+- Hooks: Functions that let you use state and lifecycle features
+
+Installation:
+npx create-react-app my-app
+cd my-app
+npm start
+
+Basic Component:
+import React from 'react';
+
+function Welcome(props) {
+    return <h1>Hello, {props.name}!</h1>;
+}
+
+export default Welcome;
+
+Class Component:
+import React, { Component } from 'react';
+
+class Welcome extends Component {
+    render() {
+        return <h1>Hello, {this.props.name}!</h1>;
+    }
+}
+
+State with Hooks:
+import React, { useState } from 'react';
+
+function Counter() {
+    const [count, setCount] = useState(0);
+
+    return (
+        <div>
+            <p>You clicked {count} times</p>
+            <button onClick={() => setCount(count + 1)}>
+                Click me
+            </button>
+        </div>
+    );
+}
+
+Effect Hook:
+import React, { useState, useEffect } from 'react';
+
+function Example() {
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        document.title = `You clicked ${count} times`;
+    });
+
+    return (
+        <div>
+            <p>You clicked {count} times</p>
+            <button onClick={() => setCount(count + 1)}>
+                Click me
+            </button>
+        </div>
+    );
+}
+
+Props:
+function Welcome(props) {
+    return <h1>Hello, {props.name}!</h1>;
+}
+
+function App() {
+    return (
+        <div>
+            <Welcome name="Sara" />
+            <Welcome name="Cahal" />
+            <Welcome name="Edite" />
+        </div>
+    );
+}
+
+Event Handling:
+function Button() {
+    function handleClick(e) {
+        e.preventDefault();
+        console.log('The link was clicked.');
+    }
+
+    return (
+        <a href="#" onClick={handleClick}>
+            Click me
+        </a>
+    );
+}
+
+Conditional Rendering:
+function Greeting(props) {
+    const isLoggedIn = props.isLoggedIn;
+    if (isLoggedIn) {
+        return <UserGreeting />;
+    }
+    return <GuestGreeting />;
+}
+
+Lists and Keys:
+function NumberList(props) {
+    const numbers = props.numbers;
+    const listItems = numbers.map((number) =>
+        <li key={number.toString()}>
+            {number}
+        </li>
+    );
+    return (
+        <ul>{listItems}</ul>
+    );
+}
+
+Forms:
+function NameForm() {
+    const [value, setValue] = useState('');
+
+    const handleChange = (event) => {
+        setValue(event.target.value);
+    };
+
+    const handleSubmit = (event) => {
+        alert('A name was submitted: ' + value);
+        event.preventDefault();
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <label>
+                Name:
+                <input type="text" value={value} onChange={handleChange} />
+            </label>
+            <input type="submit" value="Submit" />
+        </form>
+    );
+}
+
+Context API:
+import React, { createContext, useContext } from 'react';
+
+const ThemeContext = createContext();
+
+function App() {
+    return (
+        <ThemeContext.Provider value="dark">
+            <Toolbar />
+        </ThemeContext.Provider>
+    );
+}
+
+function Toolbar() {
+    return (
+        <div>
+            <ThemedButton />
+        </div>
+    );
+}
+
+function ThemedButton() {
+    const theme = useContext(ThemeContext);
+    return <button className={theme}>I am styled by theme context!</button>;
+}
+
+Custom Hooks:
+import { useState, useEffect } from 'react';
+
+function useFriendStatus(friendID) {
+    const [isOnline, setIsOnline] = useState(null);
+
+    useEffect(() => {
+        function handleStatusChange(status) {
+            setIsOnline(status.isOnline);
+        }
+
+        ChatAPI.subscribeToFriendStatus(friendID, handleStatusChange);
+        return () => {
+            ChatAPI.unsubscribeFromFriendStatus(friendID, handleStatusChange);
+        };
+    });
+
+    return isOnline;
+}
+
+Router (React Router):
+npm install react-router-dom
+
+import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
+
+function App() {
+    return (
+        <Router>
+            <div>
+                <nav>
+                    <Link to="/">Home</Link>
+                    <Link to="/about">About</Link>
+                </nav>
+
+                <Switch>
+                    <Route path="/about">
+                        <About />
+                    </Route>
+                    <Route path="/">
+                        <Home />
+                    </Route>
+                </Switch>
+            </div>
+        </Router>
+    );
+}
+
+State Management (Redux):
+npm install redux react-redux
+
+// store.js
+import { createStore } from 'redux';
+
+const initialState = { count: 0 };
+
+function counterReducer(state = initialState, action) {
+    switch (action.type) {
+        case 'INCREMENT':
+            return { count: state.count + 1 };
+        case 'DECREMENT':
+            return { count: state.count - 1 };
+        default:
+            return state;
+    }
+}
+
+const store = createStore(counterReducer);
+
+Testing:
+npm install --save-dev @testing-library/react @testing-library/jest-dom
+
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders learn react link', () => {
+    render(<App />);
+    const linkElement = screen.getByText(/learn react/i);
+    expect(linkElement).toBeInTheDocument();
+});
+
+Best Practices:
+- Use functional components with hooks
+- Keep components small and focused
+- Use meaningful component names
+- Avoid deeply nested components
+- Use PropTypes for type checking
+- Optimize performance with React.memo
+- Use useCallback and useMemo when needed
+- Follow the single responsibility principle

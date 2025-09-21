@@ -1,0 +1,207 @@
+LangChain Framework Documentation
+
+LangChain is a framework for developing applications powered by language models.
+
+Core Concepts:
+- Components: Modular abstractions for working with LLMs
+- Chains: Sequences of calls to components
+- Agents: LLMs that can use tools and make decisions
+- Memory: Persistence of state between calls
+- Callbacks: Hooks for logging, monitoring, and streaming
+
+Installation:
+pip install langchain
+pip install langchain-community
+pip install langchain-openai
+
+Basic LLM Usage:
+from langchain.llms import OpenAI
+
+llm = OpenAI(temperature=0.9)
+text = "What would be a good company name for a company that makes colorful socks?"
+print(llm(text))
+
+Chat Models:
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+
+chat = ChatOpenAI(temperature=0)
+messages = [HumanMessage(content="Hello world!")]
+print(chat(messages))
+
+Prompts:
+from langchain.prompts import PromptTemplate
+
+prompt = PromptTemplate(
+    input_variables=["product"],
+    template="What is a good name for a company that makes {product}?",
+)
+
+print(prompt.format(product="colorful socks"))
+
+Chains:
+from langchain.chains import LLMChain
+
+llm = OpenAI(temperature=0.9)
+prompt = PromptTemplate(
+    input_variables=["product"],
+    template="What is a good name for a company that makes {product}?",
+)
+
+chain = LLMChain(llm=llm, prompt=prompt)
+print(chain.run("colorful socks"))
+
+Sequential Chains:
+from langchain.chains import SimpleSequentialChain
+
+# First chain
+first_prompt = PromptTemplate(
+    input_variables=["product"],
+    template="What is a good name for a company that makes {product}?",
+)
+chain_one = LLMChain(llm=llm, prompt=first_prompt)
+
+# Second chain
+second_prompt = PromptTemplate(
+    input_variables=["company_name"],
+    template="Write a catchphrase for the company: {company_name}",
+)
+chain_two = LLMChain(llm=llm, prompt=second_prompt)
+
+# Combine chains
+overall_chain = SimpleSequentialChain(chains=[chain_one, chain_two], verbose=True)
+catchphrase = overall_chain.run("colorful socks")
+
+Document Loaders:
+from langchain.document_loaders import TextLoader
+
+loader = TextLoader('path/to/file.txt')
+documents = loader.load()
+
+# PDF Loader
+from langchain.document_loaders import PyPDFLoader
+
+loader = PyPDFLoader("path/to/file.pdf")
+pages = loader.load_and_split()
+
+Text Splitters:
+from langchain.text_splitter import CharacterTextSplitter
+
+text_splitter = CharacterTextSplitter(
+    separator="\n\n",
+    chunk_size=1000,
+    chunk_overlap=200,
+    length_function=len,
+)
+
+texts = text_splitter.split_text(state_of_the_union)
+
+Vector Stores:
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import Chroma
+
+embeddings = OpenAIEmbeddings()
+docsearch = Chroma.from_texts(texts, embeddings)
+
+# Similarity search
+docs = docsearch.similarity_search("What did the president say about Ketanji Brown Jackson")
+
+Retrieval QA:
+from langchain.chains import RetrievalQA
+
+qa = RetrievalQA.from_chain_type(
+    llm=OpenAI(),
+    chain_type="stuff",
+    retriever=docsearch.as_retriever()
+)
+
+query = "What did the president say about Ketanji Brown Jackson"
+result = qa.run(query)
+
+Agents:
+from langchain.agents import load_tools
+from langchain.agents import initialize_agent
+from langchain.agents import AgentType
+
+# Load tools
+tools = load_tools(["serpapi", "llm-math"], llm=llm)
+
+# Initialize agent
+agent = initialize_agent(
+    tools,
+    llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True
+)
+
+# Run agent
+agent.run("What was the high temperature in SF yesterday in Fahrenheit? What is that number raised to the .023 power?")
+
+Memory:
+from langchain.memory import ConversationBufferMemory
+
+memory = ConversationBufferMemory()
+memory.chat_memory.add_user_message("hi!")
+memory.chat_memory.add_ai_message("what's up?")
+
+# Use with chain
+from langchain.chains import ConversationChain
+
+conversation = ConversationChain(
+    llm=llm,
+    memory=ConversationBufferMemory(),
+    verbose=True
+)
+
+conversation.predict(input="Hi there!")
+
+Custom Chains:
+from langchain.chains.base import Chain
+from typing import Dict, List
+
+class MyCustomChain(Chain):
+    """An example of a custom chain."""
+
+    @property
+    def input_keys(self) -> List[str]:
+        """Input keys this chain expects."""
+        return ["question"]
+
+    @property
+    def output_keys(self) -> List[str]:
+        """Output keys this chain will produce."""
+        return ["answer"]
+
+    def _call(self, inputs: Dict[str, str]) -> Dict[str, str]:
+        """Run the chain."""
+        # Your custom logic here
+        return {"answer": f"Answer to: {inputs['question']}"}
+
+Callbacks:
+from langchain.callbacks.base import BaseCallbackHandler
+
+class MyCustomHandler(BaseCallbackHandler):
+    def on_llm_start(self, serialized, prompts, **kwargs):
+        print(f"LLM started with prompts: {prompts}")
+
+    def on_llm_end(self, response, **kwargs):
+        print(f"LLM ended with response: {response}")
+
+# Use with chain
+chain = LLMChain(llm=llm, prompt=prompt, callbacks=[MyCustomHandler()])
+
+Streaming:
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+llm = OpenAI(streaming=True, callbacks=[StreamingStdOutCallbackHandler()], temperature=0)
+resp = llm("Write me a song about sparkling water.")
+
+Best Practices:
+- Use appropriate prompt templates
+- Implement proper error handling
+- Cache embeddings and results when possible
+- Use async operations for better performance
+- Monitor token usage and costs
+- Validate inputs and outputs
+- Use memory efficiently for long conversations
+- Test with different models and parameters

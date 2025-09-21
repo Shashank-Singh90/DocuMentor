@@ -1,0 +1,1346 @@
+LangChain Complete Framework Documentation
+
+LangChain is a framework for developing applications powered by language models, focusing on composition and modularity.
+
+INSTALLATION AND SETUP
+
+Installation:
+# Core LangChain
+pip install langchain
+
+# LangChain Community (integrations)
+pip install langchain-community
+
+# LangChain Experimental (cutting-edge features)
+pip install langchain-experimental
+
+# LangChain OpenAI
+pip install langchain-openai
+
+# LangChain Anthropic
+pip install langchain-anthropic
+
+# Additional dependencies
+pip install chromadb        # Vector database
+pip install faiss-cpu       # Facebook AI Similarity Search
+pip install tiktoken        # OpenAI tokenizer
+pip install unstructured    # Document loaders
+pip install pypdf           # PDF processing
+pip install beautifulsoup4  # Web scraping
+
+Environment Setup:
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Set API keys
+os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
+os.environ["ANTHROPIC_API_KEY"] = "your-anthropic-api-key"
+os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
+os.environ["HUGGINGFACE_API_TOKEN"] = "your-huggingface-token"
+
+CORE COMPONENTS
+
+Language Models (LLMs):
+from langchain_openai import OpenAI, ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_community.llms import HuggingFacePipeline, Ollama
+
+# OpenAI LLM
+llm = OpenAI(
+    temperature=0.7,
+    max_tokens=1000,
+    model_name="gpt-3.5-turbo-instruct"
+)
+
+# OpenAI Chat Model
+chat_model = ChatOpenAI(
+    model="gpt-4",
+    temperature=0.3,
+    max_tokens=500
+)
+
+# Anthropic Claude
+claude = ChatAnthropic(
+    model="claude-3-sonnet-20240229",
+    temperature=0.2,
+    max_tokens=1000
+)
+
+# Local Ollama model
+local_llm = Ollama(
+    model="llama2",
+    temperature=0.1
+)
+
+# HuggingFace model
+hf_llm = HuggingFacePipeline.from_model_id(
+    model_id="microsoft/DialoGPT-medium",
+    task="text-generation",
+    model_kwargs={"temperature": 0.7}
+)
+
+# Basic usage
+response = llm.invoke("What is artificial intelligence?")
+print(response)
+
+Chat Models:
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+
+# Single message
+response = chat_model.invoke([HumanMessage(content="Hello, how are you?")])
+print(response.content)
+
+# Multiple messages with system context
+messages = [
+    SystemMessage(content="You are a helpful AI assistant specializing in Python programming."),
+    HumanMessage(content="How do I create a list comprehension?"),
+    AIMessage(content="A list comprehension in Python allows you to create lists in a concise way..."),
+    HumanMessage(content="Can you show me an example?")
+]
+
+response = chat_model.invoke(messages)
+print(response.content)
+
+# Streaming responses
+for chunk in chat_model.stream([HumanMessage(content="Tell me a story")]):
+    print(chunk.content, end="", flush=True)
+
+PROMPTS AND PROMPT TEMPLATES
+
+Basic Prompt Templates:
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+from langchain.prompts.few_shot import FewShotPromptTemplate
+
+# Simple prompt template
+template = """
+You are a {role} helping a user with {task}.
+User question: {question}
+Please provide a helpful response.
+"""
+
+prompt = PromptTemplate(
+    template=template,
+    input_variables=["role", "task", "question"]
+)
+
+# Format the prompt
+formatted_prompt = prompt.format(
+    role="Python developer",
+    task="debugging code",
+    question="Why is my loop not working?"
+)
+
+# Chat prompt template
+chat_template = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful {role} assistant."),
+    ("human", "I need help with {topic}. {question}")
+])
+
+# Format chat prompt
+formatted_chat = chat_template.format_messages(
+    role="data scientist",
+    topic="machine learning",
+    question="How do I choose the right algorithm?"
+)
+
+Few-Shot Prompting:
+# Examples for few-shot learning
+examples = [
+    {
+        "question": "What is 2+2?",
+        "answer": "2+2 = 4"
+    },
+    {
+        "question": "What is 3*4?",
+        "answer": "3*4 = 12"
+    },
+    {
+        "question": "What is 15/3?",
+        "answer": "15/3 = 5"
+    }
+]
+
+# Example template
+example_template = """
+Question: {question}
+Answer: {answer}
+"""
+
+example_prompt = PromptTemplate(
+    input_variables=["question", "answer"],
+    template=example_template
+)
+
+# Few-shot prompt
+few_shot_prompt = FewShotPromptTemplate(
+    examples=examples,
+    example_prompt=example_prompt,
+    prefix="You are a math tutor. Answer the following questions:",
+    suffix="Question: {input}\nAnswer:",
+    input_variables=["input"]
+)
+
+# Use the few-shot prompt
+math_question = few_shot_prompt.format(input="What is 7*8?")
+response = llm.invoke(math_question)
+
+Output Parsers:
+from langchain.output_parsers import PydanticOutputParser, CommaSeparatedListOutputParser
+from langchain.output_parsers.json import SimpleJsonOutputParser
+from pydantic import BaseModel, Field
+
+# Pydantic model for structured output
+class Person(BaseModel):
+    name: str = Field(description="person's name")
+    age: int = Field(description="person's age")
+    occupation: str = Field(description="person's job")
+
+# Pydantic output parser
+parser = PydanticOutputParser(pydantic_object=Person)
+
+# Prompt with format instructions
+prompt = PromptTemplate(
+    template="Extract information about the person.\n{format_instructions}\n{query}",
+    input_variables=["query"],
+    partial_variables={"format_instructions": parser.get_format_instructions()}
+)
+
+# Chain with parser
+chain = prompt | llm | parser
+
+# Use the chain
+result = chain.invoke({"query": "John Smith is a 30-year-old software engineer."})
+print(result)  # Person object
+
+# List output parser
+list_parser = CommaSeparatedListOutputParser()
+
+list_prompt = PromptTemplate(
+    template="List 5 {topic}.\n{format_instructions}",
+    input_variables=["topic"],
+    partial_variables={"format_instructions": list_parser.get_format_instructions()}
+)
+
+# JSON output parser
+json_parser = SimpleJsonOutputParser()
+
+json_prompt = PromptTemplate(
+    template="Extract key information as JSON.\n{format_instructions}\n{text}",
+    input_variables=["text"],
+    partial_variables={"format_instructions": json_parser.get_format_instructions()}
+)
+
+CHAINS
+
+Basic Chains:
+from langchain.chains import LLMChain, SimpleSequentialChain, SequentialChain
+from langchain.chains.llm import LLMChain
+
+# Simple LLM Chain
+prompt_template = PromptTemplate(
+    input_variables=["product"],
+    template="What is a good name for a company that makes {product}?"
+)
+
+llm_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+# Run the chain
+result = llm_chain.run("eco-friendly water bottles")
+print(result)
+
+# Using invoke (newer API)
+result = llm_chain.invoke({"product": "eco-friendly water bottles"})
+print(result["text"])
+
+Sequential Chains:
+# First chain: Generate company name
+name_chain = LLMChain(
+    llm=llm,
+    prompt=PromptTemplate(
+        input_variables=["product"],
+        template="What is a good name for a company that makes {product}?"
+    )
+)
+
+# Second chain: Generate company description
+description_chain = LLMChain(
+    llm=llm,
+    prompt=PromptTemplate(
+        input_variables=["company_name"],
+        template="Write a description for the following company: {company_name}"
+    )
+)
+
+# Simple sequential chain (output of first becomes input of second)
+simple_chain = SimpleSequentialChain(
+    chains=[name_chain, description_chain],
+    verbose=True
+)
+
+result = simple_chain.run("eco-friendly water bottles")
+
+# Sequential chain with multiple inputs/outputs
+marketing_chain = LLMChain(
+    llm=llm,
+    prompt=PromptTemplate(
+        input_variables=["company_name", "product"],
+        template="Write a marketing slogan for {company_name} that makes {product}"
+    ),
+    output_key="slogan"
+)
+
+full_chain = SequentialChain(
+    chains=[name_chain, description_chain, marketing_chain],
+    input_variables=["product"],
+    output_variables=["company_name", "description", "slogan"],
+    verbose=True
+)
+
+Transform Chain:
+from langchain.chains import TransformChain
+
+def transform_func(inputs: dict) -> dict:
+    text = inputs["text"]
+    # Simple transformation: uppercase
+    return {"output_text": text.upper()}
+
+transform_chain = TransformChain(
+    input_variables=["text"],
+    output_variables=["output_text"],
+    transform=transform_func
+)
+
+# Combine with LLM chain
+combined_chain = transform_chain | llm_chain
+
+MEMORY
+
+Conversation Memory:
+from langchain.memory import ConversationBufferMemory, ConversationSummaryMemory
+from langchain.memory import ConversationBufferWindowMemory, ConversationTokenBufferMemory
+
+# Basic conversation memory
+memory = ConversationBufferMemory()
+
+# Add conversation history
+memory.save_context(
+    {"input": "Hi, I'm interested in learning Python"},
+    {"output": "Great! Python is a wonderful programming language to learn."}
+)
+
+memory.save_context(
+    {"input": "What should I start with?"},
+    {"output": "I recommend starting with basic syntax and data types."}
+)
+
+# Chain with memory
+conversation_chain = LLMChain(
+    llm=llm,
+    prompt=PromptTemplate(
+        input_variables=["history", "input"],
+        template="""
+        {history}
+        Human: {input}
+        AI:"""
+    ),
+    memory=memory,
+    verbose=True
+)
+
+# Continue conversation
+response = conversation_chain.predict(input="Can you give me an example?")
+
+# Different memory types
+# Window memory (keeps last k interactions)
+window_memory = ConversationBufferWindowMemory(k=3)
+
+# Summary memory (summarizes old conversations)
+summary_memory = ConversationSummaryMemory(
+    llm=llm,
+    max_token_limit=100
+)
+
+# Token buffer memory (keeps up to max_token_limit tokens)
+token_memory = ConversationTokenBufferMemory(
+    llm=llm,
+    max_token_limit=500
+)
+
+Entity Memory:
+from langchain.memory import ConversationEntityMemory
+from langchain.memory.prompt import ENTITY_MEMORY_CONVERSATION_TEMPLATE
+
+# Entity memory tracks important entities
+entity_memory = ConversationEntityMemory(
+    llm=llm,
+    return_messages=True
+)
+
+# Chain with entity memory
+entity_chain = LLMChain(
+    llm=llm,
+    prompt=ENTITY_MEMORY_CONVERSATION_TEMPLATE,
+    memory=entity_memory,
+    verbose=True
+)
+
+# The memory will extract and remember entities like names, places, etc.
+entity_chain.predict(input="Hi, I'm John from New York. I work at Google.")
+entity_chain.predict(input="What do you know about me?")
+
+DOCUMENT LOADING AND PROCESSING
+
+Document Loaders:
+from langchain_community.document_loaders import (
+    TextLoader, PDFLoader, CSVLoader, JSONLoader,
+    WebBaseLoader, GitbookLoader, NotionDBLoader
+)
+from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
+
+# Text file loader
+text_loader = TextLoader("document.txt")
+documents = text_loader.load()
+
+# PDF loader
+pdf_loader = PDFLoader("document.pdf")
+pdf_docs = pdf_loader.load()
+
+# CSV loader
+csv_loader = CSVLoader(
+    file_path="data.csv",
+    csv_args={
+        "delimiter": ",",
+        "quotechar": '"',
+        "fieldnames": ["name", "age", "city"]
+    }
+)
+
+# JSON loader
+json_loader = JSONLoader(
+    file_path="data.json",
+    jq_schema=".messages[].content",
+    text_content=False
+)
+
+# Web page loader
+web_loader = WebBaseLoader("https://example.com")
+web_docs = web_loader.load()
+
+# Multiple URLs
+web_loader = WebBaseLoader([
+    "https://example.com/page1",
+    "https://example.com/page2"
+])
+
+Text Splitters:
+# Recursive character text splitter (recommended)
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    length_function=len,
+    separators=["\n\n", "\n", " ", ""]
+)
+
+# Split documents
+split_docs = text_splitter.split_documents(documents)
+
+# Character text splitter
+char_splitter = CharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=100,
+    separator="\n"
+)
+
+# Code-specific splitters
+from langchain.text_splitter import PythonCodeTextSplitter, MarkdownTextSplitter
+
+python_splitter = PythonCodeTextSplitter(
+    chunk_size=500,
+    chunk_overlap=50
+)
+
+markdown_splitter = MarkdownTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=100
+)
+
+# Token-based splitter
+from langchain.text_splitter import TokenTextSplitter
+
+token_splitter = TokenTextSplitter(
+    encoding_name="cl100k_base",  # GPT-4 encoding
+    chunk_size=400,
+    chunk_overlap=50
+)
+
+VECTOR STORES AND EMBEDDINGS
+
+Embeddings:
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings, OllamaEmbeddings
+
+# OpenAI embeddings
+openai_embeddings = OpenAIEmbeddings(
+    model="text-embedding-ada-002"
+)
+
+# HuggingFace embeddings
+hf_embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# Ollama embeddings (local)
+ollama_embeddings = OllamaEmbeddings(
+    model="nomic-embed-text"
+)
+
+# Generate embeddings
+text = "This is a sample text for embedding"
+embedding = openai_embeddings.embed_query(text)
+print(f"Embedding dimension: {len(embedding)}")
+
+# Embed multiple documents
+documents = ["Doc 1 content", "Doc 2 content", "Doc 3 content"]
+doc_embeddings = openai_embeddings.embed_documents(documents)
+
+Vector Stores:
+from langchain_community.vectorstores import Chroma, FAISS, Pinecone
+from langchain_community.vectorstores import Weaviate, Qdrant
+
+# Chroma vector store
+chroma_db = Chroma.from_documents(
+    documents=split_docs,
+    embedding=openai_embeddings,
+    persist_directory="./chroma_db"
+)
+
+# FAISS vector store
+faiss_db = FAISS.from_documents(
+    documents=split_docs,
+    embedding=openai_embeddings
+)
+
+# Save FAISS index
+faiss_db.save_local("faiss_index")
+
+# Load FAISS index
+loaded_faiss = FAISS.load_local(
+    "faiss_index",
+    embeddings=openai_embeddings
+)
+
+# Similarity search
+query = "What is machine learning?"
+similar_docs = chroma_db.similarity_search(
+    query,
+    k=4
+)
+
+# Similarity search with scores
+docs_with_scores = chroma_db.similarity_search_with_score(
+    query,
+    k=4
+)
+
+# Maximum marginal relevance search (MMR)
+mmr_docs = chroma_db.max_marginal_relevance_search(
+    query,
+    k=4,
+    fetch_k=20,
+    lambda_mult=0.5
+)
+
+RETRIEVAL
+
+Basic Retrieval:
+# Create retriever from vector store
+retriever = chroma_db.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 4}
+)
+
+# Different search types
+similarity_retriever = chroma_db.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 4}
+)
+
+mmr_retriever = chroma_db.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 4, "fetch_k": 20}
+)
+
+threshold_retriever = chroma_db.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.5}
+)
+
+# Use retriever
+relevant_docs = retriever.get_relevant_documents("What is deep learning?")
+
+Advanced Retrievers:
+from langchain.retrievers import (
+    MultiVectorRetriever, ParentDocumentRetriever,
+    SelfQueryRetriever, ContextualCompressionRetriever
+)
+from langchain.retrievers.document_compressors import LLMChainExtractor
+
+# Multi-vector retriever (for storing multiple representations)
+multi_retriever = MultiVectorRetriever(
+    vectorstore=chroma_db,
+    docstore={},  # Simple in-memory docstore
+    id_key="doc_id"
+)
+
+# Parent document retriever (store small chunks, retrieve larger parents)
+parent_retriever = ParentDocumentRetriever(
+    vectorstore=chroma_db,
+    docstore={},
+    child_splitter=RecursiveCharacterTextSplitter(chunk_size=400),
+    parent_splitter=RecursiveCharacterTextSplitter(chunk_size=2000)
+)
+
+# Contextual compression retriever
+compressor = LLMChainExtractor.from_llm(llm)
+compression_retriever = ContextualCompressionRetriever(
+    base_compressor=compressor,
+    base_retriever=retriever
+)
+
+# Self-query retriever (with metadata filtering)
+from langchain.chains.query_constructor.base import AttributeInfo
+
+metadata_field_info = [
+    AttributeInfo(
+        name="source",
+        description="The source of the document",
+        type="string"
+    ),
+    AttributeInfo(
+        name="page",
+        description="The page number",
+        type="integer"
+    )
+]
+
+self_query_retriever = SelfQueryRetriever.from_llm(
+    llm,
+    chroma_db,
+    "Brief description of the documents",
+    metadata_field_info,
+    verbose=True
+)
+
+RETRIEVAL AUGMENTED GENERATION (RAG)
+
+Basic RAG:
+from langchain.chains import RetrievalQA
+from langchain.chains.question_answering import load_qa_chain
+
+# Simple RetrievalQA chain
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="stuff",
+    retriever=retriever,
+    verbose=True,
+    return_source_documents=True
+)
+
+# Ask questions
+result = qa_chain({"query": "What are the benefits of machine learning?"})
+print("Answer:", result["result"])
+print("Sources:", result["source_documents"])
+
+# Different chain types
+# "stuff" - Stuff all documents into prompt
+# "map_reduce" - Map over documents, then reduce
+# "refine" - Refine answer iteratively
+# "map_rerank" - Map over documents and rerank
+
+qa_map_reduce = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="map_reduce",
+    retriever=retriever
+)
+
+Custom RAG Pipeline:
+from langchain.schema.runnable import RunnablePassthrough
+from langchain.schema.output_parser import StrOutputParser
+
+# Custom RAG prompt
+rag_prompt = ChatPromptTemplate.from_template("""
+You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
+
+Context: {context}
+
+Question: {question}
+
+Answer:
+""")
+
+# Format documents function
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# Create RAG chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | rag_prompt
+    | llm
+    | StrOutputParser()
+)
+
+# Use the chain
+answer = rag_chain.invoke("What is machine learning?")
+print(answer)
+
+Advanced RAG Techniques:
+# Multi-query retrieval
+from langchain.retrievers.multi_query import MultiQueryRetriever
+
+multi_query_retriever = MultiQueryRetriever.from_llm(
+    retriever=retriever,
+    llm=llm
+)
+
+# Parent document retrieval with different chunk sizes
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000)
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=400)
+
+parent_retriever = ParentDocumentRetriever(
+    vectorstore=chroma_db,
+    docstore={},
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter
+)
+
+# RAG with conversation memory
+from langchain.chains import ConversationalRetrievalChain
+
+conv_retrieval_chain = ConversationalRetrievalChain.from_llm(
+    llm=llm,
+    retriever=retriever,
+    memory=ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True
+    )
+)
+
+# Chat with follow-up questions
+result1 = conv_retrieval_chain({"question": "What is machine learning?"})
+result2 = conv_retrieval_chain({"question": "What are its applications?"})
+
+AGENTS AND TOOLS
+
+Basic Agents:
+from langchain.agents import initialize_agent, Tool, AgentType
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain.tools import tool
+
+# Define custom tools
+@tool
+def get_word_length(word: str) -> int:
+    """Returns the length of a word."""
+    return len(word)
+
+@tool
+def calculator(expression: str) -> float:
+    """Evaluates a mathematical expression."""
+    try:
+        return eval(expression)
+    except:
+        return "Invalid expression"
+
+# Search tool
+search = DuckDuckGoSearchRun()
+
+# List of tools
+tools = [
+    Tool(
+        name="Search",
+        func=search.run,
+        description="Useful for searching current information on the internet"
+    ),
+    get_word_length,
+    calculator
+]
+
+# Initialize agent
+agent = initialize_agent(
+    tools=tools,
+    llm=llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True,
+    handle_parsing_errors=True
+)
+
+# Use agent
+result = agent.run("What is the length of the word 'LangChain' and what is 15 * 23?")
+
+ReAct Agent:
+from langchain.agents import create_react_agent
+from langchain import hub
+
+# Get ReAct prompt
+react_prompt = hub.pull("hwchase17/react")
+
+# Create ReAct agent
+react_agent = create_react_agent(
+    llm=llm,
+    tools=tools,
+    prompt=react_prompt
+)
+
+# Agent executor
+from langchain.agents import AgentExecutor
+
+agent_executor = AgentExecutor(
+    agent=react_agent,
+    tools=tools,
+    verbose=True,
+    handle_parsing_errors=True,
+    max_iterations=5
+)
+
+Custom Tools:
+from langchain.tools import BaseTool
+from typing import Optional, Type
+from pydantic import BaseModel, Field
+
+class WeatherInput(BaseModel):
+    location: str = Field(description="Location to get weather for")
+
+class WeatherTool(BaseTool):
+    name = "weather"
+    description = "Get current weather for a location"
+    args_schema: Type[BaseModel] = WeatherInput
+
+    def _run(self, location: str) -> str:
+        # Mock weather API call
+        return f"The weather in {location} is sunny and 75°F"
+
+    async def _arun(self, location: str) -> str:
+        # Async version
+        return self._run(location)
+
+# File system tools
+from langchain_community.tools.file_management import (
+    ReadFileTool, WriteFileTool, ListDirectoryTool
+)
+
+file_tools = [
+    ReadFileTool(),
+    WriteFileTool(),
+    ListDirectoryTool()
+]
+
+Multi-Agent Systems:
+from langchain.agents import Agent
+
+# Research agent
+research_tools = [search, WeatherTool()]
+research_agent = initialize_agent(
+    tools=research_tools,
+    llm=llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True
+)
+
+# Writing agent
+writing_tools = [get_word_length, calculator]
+writing_agent = initialize_agent(
+    tools=writing_tools,
+    llm=llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True
+)
+
+# Coordinator that delegates to other agents
+def coordinate_agents(task: str) -> str:
+    if "research" in task.lower() or "search" in task.lower():
+        return research_agent.run(task)
+    elif "write" in task.lower() or "calculate" in task.lower():
+        return writing_agent.run(task)
+    else:
+        return "Please specify if this is a research or writing task."
+
+CALLBACKS AND STREAMING
+
+Callbacks:
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema import LLMResult
+
+class CustomCallbackHandler(BaseCallbackHandler):
+    def on_llm_start(self, serialized, prompts, **kwargs):
+        print(f"LLM started with prompts: {prompts}")
+
+    def on_llm_end(self, response: LLMResult, **kwargs):
+        print(f"LLM ended with response: {response}")
+
+    def on_llm_error(self, error, **kwargs):
+        print(f"LLM error: {error}")
+
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        print(f"Chain started with inputs: {inputs}")
+
+    def on_chain_end(self, outputs, **kwargs):
+        print(f"Chain ended with outputs: {outputs}")
+
+# Use callback with chain
+callback_handler = CustomCallbackHandler()
+
+chain_with_callback = LLMChain(
+    llm=llm,
+    prompt=prompt_template,
+    callbacks=[callback_handler]
+)
+
+Streaming:
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+# Streaming LLM
+streaming_llm = ChatOpenAI(
+    model="gpt-3.5-turbo",
+    temperature=0.7,
+    streaming=True,
+    callbacks=[StreamingStdOutCallbackHandler()]
+)
+
+# Custom streaming callback
+class CustomStreamingHandler(BaseCallbackHandler):
+    def on_llm_new_token(self, token: str, **kwargs):
+        print(f"New token: {token}", end="", flush=True)
+
+streaming_chain = LLMChain(
+    llm=streaming_llm,
+    prompt=prompt_template,
+    callbacks=[CustomStreamingHandler()]
+)
+
+LANGSMITH INTEGRATION
+
+LangSmith Setup:
+import os
+from langsmith import Client
+
+# Set LangSmith environment variables
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+os.environ["LANGCHAIN_API_KEY"] = "your-langsmith-api-key"
+os.environ["LANGCHAIN_PROJECT"] = "your-project-name"
+
+# LangSmith client
+client = Client()
+
+# Run evaluation
+from langsmith.evaluation import evaluate
+
+def example_evaluator(run, example):
+    # Custom evaluation logic
+    score = 1.0 if "correct" in run.outputs.get("result", "").lower() else 0.0
+    return {"score": score}
+
+# Evaluate a dataset
+evaluate(
+    lambda inputs: chain.invoke(inputs),
+    data="your-dataset-name",
+    evaluators=[example_evaluator],
+    experiment_prefix="test-experiment"
+)
+
+EXPRESSION LANGUAGE (LCEL)
+
+LCEL Basics:
+from langchain.schema.runnable import RunnablePassthrough, RunnableParallel
+from langchain.schema.output_parser import StrOutputParser
+
+# Simple chain with LCEL
+chain = prompt | llm | StrOutputParser()
+
+# Parallel execution
+parallel_chain = RunnableParallel({
+    "joke": prompt | llm | StrOutputParser(),
+    "poem": prompt | llm | StrOutputParser()
+})
+
+# Conditional logic
+from langchain.schema.runnable import RunnableBranch
+
+branch = RunnableBranch(
+    (lambda x: "math" in x["topic"], math_chain),
+    (lambda x: "history" in x["topic"], history_chain),
+    general_chain  # default
+)
+
+# Complex chain composition
+complex_chain = (
+    RunnablePassthrough.assign(
+        context=lambda x: retriever.get_relevant_documents(x["question"])
+    )
+    | RunnablePassthrough.assign(
+        formatted_context=lambda x: format_docs(x["context"])
+    )
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+LCEL Features:
+# Batch processing
+batch_results = chain.batch([
+    {"topic": "AI"},
+    {"topic": "ML"},
+    {"topic": "DL"}
+])
+
+# Async execution
+async def async_example():
+    result = await chain.ainvoke({"topic": "quantum computing"})
+    return result
+
+# Streaming
+for chunk in chain.stream({"topic": "blockchain"}):
+    print(chunk, end="", flush=True)
+
+# Configuration
+configured_chain = chain.with_config({
+    "tags": ["my-tag"],
+    "metadata": {"version": "1.0"}
+})
+
+SPECIALIZED CHAINS
+
+SQL Chain:
+from langchain_community.utilities import SQLDatabase
+from langchain.chains import SQLDatabaseChain
+
+# Connect to database
+db = SQLDatabase.from_uri("sqlite:///example.db")
+
+# SQL chain
+sql_chain = SQLDatabaseChain.from_llm(
+    llm=llm,
+    db=db,
+    verbose=True,
+    return_intermediate_steps=True
+)
+
+# Query database in natural language
+result = sql_chain("How many users are in the database?")
+
+API Chain:
+from langchain.chains import APIChain
+from langchain.chains.api.prompt import API_RESPONSE_PROMPT
+
+# API documentation
+api_docs = """
+API for getting weather information:
+- GET /weather?location={location}: Get current weather
+- GET /forecast?location={location}&days={days}: Get weather forecast
+"""
+
+api_chain = APIChain.from_llm_and_api_docs(
+    llm=llm,
+    api_docs=api_docs,
+    verbose=True
+)
+
+# Use API chain
+weather_result = api_chain("What's the weather like in New York?")
+
+Graph Chain:
+from langchain.chains.graph_qa.cypher import GraphCypherQAChain
+from langchain_community.graphs import Neo4jGraph
+
+# Connect to Neo4j
+graph = Neo4jGraph(
+    url="bolt://localhost:7687",
+    username="neo4j",
+    password="password"
+)
+
+# Graph QA chain
+graph_chain = GraphCypherQAChain.from_llm(
+    llm=llm,
+    graph=graph,
+    verbose=True
+)
+
+EVALUATION
+
+LLM Evaluation:
+from langchain.evaluation import load_evaluator
+
+# Criteria evaluator
+criteria_evaluator = load_evaluator("criteria", criteria="helpfulness")
+
+# Evaluate a response
+eval_result = criteria_evaluator.evaluate_strings(
+    prediction="The capital of France is Paris.",
+    input="What is the capital of France?"
+)
+
+# Labeled criteria evaluator
+labeled_evaluator = load_evaluator(
+    "labeled_criteria",
+    criteria="correctness"
+)
+
+eval_result = labeled_evaluator.evaluate_strings(
+    prediction="The capital of France is Paris.",
+    reference="Paris is the capital of France.",
+    input="What is the capital of France?"
+)
+
+# String distance evaluator
+distance_evaluator = load_evaluator("string_distance")
+
+QA Evaluation:
+from langchain.evaluation.qa import QAEvalChain
+
+# Create evaluation chain
+eval_chain = QAEvalChain.from_llm(llm)
+
+# Evaluation examples
+examples = [
+    {
+        "query": "What is the capital of France?",
+        "answer": "Paris is the capital of France."
+    }
+]
+
+# Predictions to evaluate
+predictions = [
+    {
+        "query": "What is the capital of France?",
+        "answer": "The capital of France is Paris.",
+        "result": "Paris"
+    }
+]
+
+# Evaluate
+graded_outputs = eval_chain.evaluate(
+    examples,
+    predictions,
+    question_key="query",
+    prediction_key="result"
+)
+
+DEPLOYMENT AND PRODUCTION
+
+LangServe:
+from fastapi import FastAPI
+from langserve import add_routes
+
+app = FastAPI(
+    title="LangChain Server",
+    version="1.0",
+    description="A simple API server using LangChain"
+)
+
+# Add chain routes
+add_routes(
+    app,
+    chain,
+    path="/chain"
+)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+
+# Client usage
+from langserve import RemoteRunnable
+
+remote_chain = RemoteRunnable("http://localhost:8000/chain/")
+result = remote_chain.invoke({"topic": "AI"})
+
+Caching:
+from langchain.cache import SQLiteCache, InMemoryCache
+from langchain.globals import set_llm_cache
+
+# SQLite cache
+set_llm_cache(SQLiteCache(database_path=".langchain.db"))
+
+# In-memory cache
+set_llm_cache(InMemoryCache())
+
+# Redis cache
+from langchain.cache import RedisCache
+import redis
+
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
+set_llm_cache(RedisCache(redis_client))
+
+# Semantic cache
+from langchain.cache import RedisSemanticCache
+
+set_llm_cache(RedisSemanticCache(
+    redis_url="redis://localhost:6379",
+    embedding=openai_embeddings
+))
+
+BEST PRACTICES
+
+Error Handling:
+from langchain.schema import OutputParserException
+
+try:
+    result = chain.invoke({"input": "user input"})
+except OutputParserException as e:
+    print(f"Failed to parse output: {e}")
+    # Fallback logic
+except Exception as e:
+    print(f"Chain execution failed: {e}")
+    # Error handling
+
+# Retry logic
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+def robust_chain_call(input_data):
+    return chain.invoke(input_data)
+
+Security:
+# Input validation
+def validate_input(user_input: str) -> str:
+    # Remove potentially harmful content
+    if any(keyword in user_input.lower() for keyword in ["system", "delete", "drop"]):
+        raise ValueError("Invalid input detected")
+    return user_input
+
+# Secure prompts
+secure_prompt = PromptTemplate(
+    template="""
+    You are a helpful assistant. Only answer questions about {approved_topics}.
+    Do not provide information about other topics.
+
+    Question: {question}
+    Answer:
+    """,
+    input_variables=["approved_topics", "question"]
+)
+
+Performance Optimization:
+# Batch processing
+inputs = [{"topic": f"Topic {i}"} for i in range(10)]
+batch_results = chain.batch(inputs)
+
+# Async processing
+import asyncio
+
+async def process_async():
+    tasks = [chain.ainvoke({"topic": f"Topic {i}"}) for i in range(10)]
+    results = await asyncio.gather(*tasks)
+    return results
+
+# Optimize embeddings
+# Use smaller embedding models for better performance
+efficient_embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# Use approximate search for large datasets
+faiss_db = FAISS.from_documents(
+    documents=split_docs,
+    embedding=efficient_embeddings
+)
+
+Monitoring:
+# Custom callback for monitoring
+class MonitoringCallback(BaseCallbackHandler):
+    def __init__(self):
+        self.call_count = 0
+        self.total_tokens = 0
+
+    def on_llm_start(self, serialized, prompts, **kwargs):
+        self.call_count += 1
+
+    def on_llm_end(self, response: LLMResult, **kwargs):
+        if hasattr(response, 'llm_output') and response.llm_output:
+            token_usage = response.llm_output.get('token_usage', {})
+            self.total_tokens += token_usage.get('total_tokens', 0)
+
+# Usage tracking
+monitor = MonitoringCallback()
+chain_with_monitoring = LLMChain(
+    llm=llm,
+    prompt=prompt_template,
+    callbacks=[monitor]
+)
+
+Testing:
+import pytest
+from unittest.mock import Mock, patch
+
+def test_chain_basic_functionality():
+    # Mock LLM response
+    mock_llm = Mock()
+    mock_llm.invoke.return_value = "Test response"
+
+    test_chain = LLMChain(llm=mock_llm, prompt=prompt_template)
+    result = test_chain.invoke({"topic": "test"})
+
+    assert "Test response" in str(result)
+    mock_llm.invoke.assert_called_once()
+
+@pytest.fixture
+def sample_documents():
+    return [
+        {"page_content": "Sample document 1", "metadata": {"source": "test1"}},
+        {"page_content": "Sample document 2", "metadata": {"source": "test2"}}
+    ]
+
+def test_retrieval_chain(sample_documents):
+    # Test retrieval functionality
+    pass
+
+Configuration Management:
+from pydantic import BaseSettings
+
+class LangChainConfig(BaseSettings):
+    openai_api_key: str
+    model_name: str = "gpt-3.5-turbo"
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+
+    class Config:
+        env_file = ".env"
+
+config = LangChainConfig()
+
+# Use configuration
+llm = ChatOpenAI(
+    model=config.model_name,
+    temperature=config.temperature,
+    max_tokens=config.max_tokens
+)
+
+Version Management:
+# Pin specific versions for production
+# requirements.txt
+"""
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-community==0.0.10
+chromadb==0.4.0
+"""
+
+# Check for compatibility
+import langchain
+print(f"LangChain version: {langchain.__version__}")
+
+# Feature detection
+try:
+    from langchain.schema.runnable import RunnablePassthrough
+    LCEL_AVAILABLE = True
+except ImportError:
+    LCEL_AVAILABLE = False

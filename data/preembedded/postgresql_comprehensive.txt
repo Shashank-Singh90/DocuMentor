@@ -1,0 +1,999 @@
+PostgreSQL Complete SQL Reference and Administration
+
+PostgreSQL is a powerful, open-source relational database management system with advanced features and SQL compliance.
+
+INSTALLATION AND SETUP
+
+Installation:
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# CentOS/RHEL
+sudo yum install postgresql-server postgresql-contrib
+sudo postgresql-setup initdb
+sudo systemctl start postgresql
+
+# macOS (Homebrew)
+brew install postgresql
+brew services start postgresql
+
+# Windows
+# Download installer from postgresql.org
+
+Initial Setup:
+# Switch to postgres user
+sudo -i -u postgres
+
+# Access PostgreSQL prompt
+psql
+
+# Create new user
+createuser --interactive
+
+# Create new database
+createdb mydb
+
+# Set password for postgres user
+psql
+\password postgres
+
+BASIC SQL OPERATIONS
+
+Database Management:
+-- Create database
+CREATE DATABASE company;
+
+-- Drop database
+DROP DATABASE company;
+
+-- List databases
+\l
+
+-- Connect to database
+\c company
+
+-- Show current database
+SELECT current_database();
+
+Table Operations:
+-- Create table
+CREATE TABLE employees (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    hire_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    salary DECIMAL(10,2),
+    department_id INTEGER,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Create table with constraints
+CREATE TABLE departments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    budget DECIMAL(15,2) CHECK (budget > 0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add foreign key constraint
+ALTER TABLE employees
+ADD CONSTRAINT fk_department
+FOREIGN KEY (department_id) REFERENCES departments(id);
+
+-- Drop table
+DROP TABLE employees;
+
+-- List tables
+\dt
+
+-- Describe table structure
+\d employees
+
+Data Types:
+-- Numeric types
+INTEGER, BIGINT, SMALLINT
+DECIMAL(precision, scale), NUMERIC(precision, scale)
+REAL, DOUBLE PRECISION
+SERIAL, BIGSERIAL
+
+-- Character types
+CHAR(n), VARCHAR(n), TEXT
+
+-- Date/Time types
+DATE, TIME, TIMESTAMP, TIMESTAMPTZ, INTERVAL
+
+-- Boolean
+BOOLEAN
+
+-- JSON types
+JSON, JSONB
+
+-- Array types
+INTEGER[], TEXT[], VARCHAR(50)[]
+
+-- UUID
+UUID
+
+-- Geometric types
+POINT, LINE, CIRCLE, POLYGON
+
+INSERT Operations:
+-- Basic insert
+INSERT INTO departments (name, budget)
+VALUES ('Engineering', 500000.00);
+
+-- Multiple row insert
+INSERT INTO employees (first_name, last_name, email, salary, department_id)
+VALUES
+    ('John', 'Doe', 'john.doe@company.com', 75000.00, 1),
+    ('Jane', 'Smith', 'jane.smith@company.com', 80000.00, 1),
+    ('Bob', 'Johnson', 'bob.johnson@company.com', 70000.00, 2);
+
+-- Insert with returning
+INSERT INTO employees (first_name, last_name, email, salary)
+VALUES ('Alice', 'Brown', 'alice.brown@company.com', 85000.00)
+RETURNING id, first_name, last_name;
+
+-- Insert from select
+INSERT INTO employees_backup
+SELECT * FROM employees WHERE department_id = 1;
+
+-- Upsert (ON CONFLICT)
+INSERT INTO employees (email, first_name, last_name, salary)
+VALUES ('john.doe@company.com', 'John', 'Doe', 76000.00)
+ON CONFLICT (email)
+DO UPDATE SET
+    salary = EXCLUDED.salary,
+    first_name = EXCLUDED.first_name;
+
+SELECT Operations:
+-- Basic select
+SELECT * FROM employees;
+
+-- Select specific columns
+SELECT first_name, last_name, salary FROM employees;
+
+-- Where clause
+SELECT * FROM employees
+WHERE salary > 75000 AND department_id = 1;
+
+-- Order by
+SELECT * FROM employees
+ORDER BY salary DESC, last_name ASC;
+
+-- Limit and offset
+SELECT * FROM employees
+ORDER BY hire_date
+LIMIT 10 OFFSET 20;
+
+-- Distinct
+SELECT DISTINCT department_id FROM employees;
+
+-- Aggregate functions
+SELECT
+    COUNT(*) as total_employees,
+    AVG(salary) as average_salary,
+    MIN(salary) as min_salary,
+    MAX(salary) as max_salary,
+    SUM(salary) as total_payroll
+FROM employees;
+
+-- Group by
+SELECT
+    department_id,
+    COUNT(*) as employee_count,
+    AVG(salary) as avg_salary
+FROM employees
+GROUP BY department_id;
+
+-- Having clause
+SELECT
+    department_id,
+    COUNT(*) as employee_count
+FROM employees
+GROUP BY department_id
+HAVING COUNT(*) > 5;
+
+JOINS
+
+Inner Join:
+SELECT
+    e.first_name,
+    e.last_name,
+    e.salary,
+    d.name as department_name
+FROM employees e
+INNER JOIN departments d ON e.department_id = d.id;
+
+Left Join:
+SELECT
+    e.first_name,
+    e.last_name,
+    d.name as department_name
+FROM employees e
+LEFT JOIN departments d ON e.department_id = d.id;
+
+Right Join:
+SELECT
+    e.first_name,
+    e.last_name,
+    d.name as department_name
+FROM employees e
+RIGHT JOIN departments d ON e.department_id = d.id;
+
+Full Outer Join:
+SELECT
+    e.first_name,
+    e.last_name,
+    d.name as department_name
+FROM employees e
+FULL OUTER JOIN departments d ON e.department_id = d.id;
+
+Self Join:
+SELECT
+    e1.first_name as employee,
+    e2.first_name as manager
+FROM employees e1
+LEFT JOIN employees e2 ON e1.manager_id = e2.id;
+
+Cross Join:
+SELECT
+    e.first_name,
+    d.name
+FROM employees e
+CROSS JOIN departments d;
+
+UPDATE Operations:
+-- Basic update
+UPDATE employees
+SET salary = 78000.00
+WHERE id = 1;
+
+-- Update multiple columns
+UPDATE employees
+SET
+    salary = salary * 1.1,
+    hire_date = CURRENT_DATE
+WHERE department_id = 1;
+
+-- Update with join
+UPDATE employees
+SET salary = salary * 1.05
+FROM departments
+WHERE employees.department_id = departments.id
+AND departments.name = 'Engineering';
+
+-- Update with returning
+UPDATE employees
+SET salary = salary * 1.1
+WHERE department_id = 1
+RETURNING id, first_name, salary;
+
+DELETE Operations:
+-- Basic delete
+DELETE FROM employees WHERE id = 5;
+
+-- Delete with condition
+DELETE FROM employees
+WHERE hire_date < '2020-01-01' AND salary < 50000;
+
+-- Delete with join
+DELETE FROM employees
+USING departments
+WHERE employees.department_id = departments.id
+AND departments.name = 'Marketing';
+
+-- Delete all rows
+DELETE FROM employees;
+
+-- Truncate (faster for all rows)
+TRUNCATE TABLE employees;
+
+ADVANCED FEATURES
+
+Window Functions:
+-- Row number
+SELECT
+    first_name,
+    last_name,
+    salary,
+    ROW_NUMBER() OVER (ORDER BY salary DESC) as rank
+FROM employees;
+
+-- Rank and dense rank
+SELECT
+    first_name,
+    last_name,
+    salary,
+    RANK() OVER (ORDER BY salary DESC) as rank,
+    DENSE_RANK() OVER (ORDER BY salary DESC) as dense_rank
+FROM employees;
+
+-- Partition by
+SELECT
+    first_name,
+    last_name,
+    salary,
+    department_id,
+    ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC) as dept_rank
+FROM employees;
+
+-- Lag and lead
+SELECT
+    first_name,
+    salary,
+    LAG(salary) OVER (ORDER BY hire_date) as previous_salary,
+    LEAD(salary) OVER (ORDER BY hire_date) as next_salary
+FROM employees;
+
+-- Moving average
+SELECT
+    hire_date,
+    salary,
+    AVG(salary) OVER (
+        ORDER BY hire_date
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) as moving_avg
+FROM employees;
+
+Common Table Expressions (CTEs):
+-- Basic CTE
+WITH high_earners AS (
+    SELECT * FROM employees WHERE salary > 80000
+)
+SELECT
+    department_id,
+    COUNT(*) as high_earner_count
+FROM high_earners
+GROUP BY department_id;
+
+-- Recursive CTE
+WITH RECURSIVE employee_hierarchy AS (
+    -- Base case: top-level managers
+    SELECT id, first_name, last_name, manager_id, 1 as level
+    FROM employees
+    WHERE manager_id IS NULL
+
+    UNION ALL
+
+    -- Recursive case
+    SELECT e.id, e.first_name, e.last_name, e.manager_id, eh.level + 1
+    FROM employees e
+    JOIN employee_hierarchy eh ON e.manager_id = eh.id
+)
+SELECT * FROM employee_hierarchy ORDER BY level, last_name;
+
+Subqueries:
+-- Scalar subquery
+SELECT first_name, last_name, salary
+FROM employees
+WHERE salary > (SELECT AVG(salary) FROM employees);
+
+-- Correlated subquery
+SELECT first_name, last_name, salary
+FROM employees e1
+WHERE salary > (
+    SELECT AVG(salary)
+    FROM employees e2
+    WHERE e2.department_id = e1.department_id
+);
+
+-- EXISTS
+SELECT first_name, last_name
+FROM employees e
+WHERE EXISTS (
+    SELECT 1 FROM departments d
+    WHERE d.id = e.department_id AND d.budget > 1000000
+);
+
+-- IN subquery
+SELECT first_name, last_name
+FROM employees
+WHERE department_id IN (
+    SELECT id FROM departments WHERE budget > 500000
+);
+
+INDEXES
+
+Creating Indexes:
+-- Basic index
+CREATE INDEX idx_employee_last_name ON employees(last_name);
+
+-- Composite index
+CREATE INDEX idx_employee_dept_salary ON employees(department_id, salary);
+
+-- Unique index
+CREATE UNIQUE INDEX idx_employee_email ON employees(email);
+
+-- Partial index
+CREATE INDEX idx_active_employees ON employees(department_id)
+WHERE is_active = TRUE;
+
+-- Expression index
+CREATE INDEX idx_employee_lower_email ON employees(LOWER(email));
+
+-- Multicolumn index with different order
+CREATE INDEX idx_salary_desc_name_asc ON employees(salary DESC, last_name ASC);
+
+Index Management:
+-- List indexes
+\di
+
+-- Get index information
+SELECT
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE tablename = 'employees';
+
+-- Drop index
+DROP INDEX idx_employee_last_name;
+
+-- Reindex
+REINDEX INDEX idx_employee_last_name;
+REINDEX TABLE employees;
+
+VIEWS
+
+Creating Views:
+-- Basic view
+CREATE VIEW employee_summary AS
+SELECT
+    e.first_name,
+    e.last_name,
+    e.salary,
+    d.name as department_name
+FROM employees e
+LEFT JOIN departments d ON e.department_id = d.id;
+
+-- View with aggregation
+CREATE VIEW department_stats AS
+SELECT
+    d.name as department_name,
+    COUNT(e.id) as employee_count,
+    AVG(e.salary) as avg_salary,
+    SUM(e.salary) as total_payroll
+FROM departments d
+LEFT JOIN employees e ON d.id = e.department_id
+GROUP BY d.id, d.name;
+
+-- Materialized view
+CREATE MATERIALIZED VIEW employee_performance AS
+SELECT
+    employee_id,
+    performance_score,
+    review_date
+FROM performance_reviews
+WHERE review_date >= CURRENT_DATE - INTERVAL '1 year';
+
+-- Refresh materialized view
+REFRESH MATERIALIZED VIEW employee_performance;
+
+View Management:
+-- List views
+\dv
+
+-- Drop view
+DROP VIEW employee_summary;
+
+-- Update view definition
+CREATE OR REPLACE VIEW employee_summary AS
+SELECT
+    e.first_name || ' ' || e.last_name as full_name,
+    e.salary,
+    d.name as department_name
+FROM employees e
+LEFT JOIN departments d ON e.department_id = d.id;
+
+STORED PROCEDURES AND FUNCTIONS
+
+Functions:
+-- Basic function
+CREATE OR REPLACE FUNCTION get_employee_count()
+RETURNS INTEGER AS $$
+BEGIN
+    RETURN (SELECT COUNT(*) FROM employees);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function with parameters
+CREATE OR REPLACE FUNCTION get_avg_salary_by_dept(dept_id INTEGER)
+RETURNS DECIMAL(10,2) AS $$
+BEGIN
+    RETURN (
+        SELECT AVG(salary)
+        FROM employees
+        WHERE department_id = dept_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function returning table
+CREATE OR REPLACE FUNCTION get_high_earners(min_salary DECIMAL)
+RETURNS TABLE(
+    employee_id INTEGER,
+    full_name TEXT,
+    salary DECIMAL(10,2)
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        e.id,
+        e.first_name || ' ' || e.last_name,
+        e.salary
+    FROM employees e
+    WHERE e.salary >= min_salary
+    ORDER BY e.salary DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function with conditional logic
+CREATE OR REPLACE FUNCTION calculate_bonus(emp_id INTEGER)
+RETURNS DECIMAL(10,2) AS $$
+DECLARE
+    emp_salary DECIMAL(10,2);
+    bonus_amount DECIMAL(10,2);
+BEGIN
+    SELECT salary INTO emp_salary
+    FROM employees
+    WHERE id = emp_id;
+
+    IF emp_salary IS NULL THEN
+        RETURN 0;
+    ELSIF emp_salary > 100000 THEN
+        bonus_amount := emp_salary * 0.15;
+    ELSIF emp_salary > 75000 THEN
+        bonus_amount := emp_salary * 0.10;
+    ELSE
+        bonus_amount := emp_salary * 0.05;
+    END IF;
+
+    RETURN bonus_amount;
+END;
+$$ LANGUAGE plpgsql;
+
+Procedures:
+-- Stored procedure
+CREATE OR REPLACE PROCEDURE update_employee_salary(
+    emp_id INTEGER,
+    new_salary DECIMAL(10,2)
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE employees
+    SET salary = new_salary
+    WHERE id = emp_id;
+
+    INSERT INTO salary_history (employee_id, old_salary, new_salary, change_date)
+    SELECT emp_id, salary, new_salary, CURRENT_TIMESTAMP
+    FROM employees
+    WHERE id = emp_id;
+END;
+$$;
+
+-- Call procedure
+CALL update_employee_salary(1, 82000.00);
+
+TRIGGERS
+
+Basic Triggers:
+-- Create audit table
+CREATE TABLE employee_audit (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER,
+    operation VARCHAR(10),
+    old_data JSONB,
+    new_data JSONB,
+    changed_by VARCHAR(100),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trigger function
+CREATE OR REPLACE FUNCTION employee_audit_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO employee_audit (employee_id, operation, new_data, changed_by)
+        VALUES (NEW.id, 'INSERT', row_to_json(NEW), USER);
+        RETURN NEW;
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO employee_audit (employee_id, operation, old_data, new_data, changed_by)
+        VALUES (NEW.id, 'UPDATE', row_to_json(OLD), row_to_json(NEW), USER);
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO employee_audit (employee_id, operation, old_data, changed_by)
+        VALUES (OLD.id, 'DELETE', row_to_json(OLD), USER);
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+CREATE TRIGGER employee_audit_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON employees
+    FOR EACH ROW
+    EXECUTE FUNCTION employee_audit_trigger();
+
+-- Before trigger for validation
+CREATE OR REPLACE FUNCTION validate_employee_salary()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.salary <= 0 THEN
+        RAISE EXCEPTION 'Salary must be positive';
+    END IF;
+
+    IF NEW.salary > 1000000 THEN
+        RAISE EXCEPTION 'Salary cannot exceed $1,000,000';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER validate_salary_trigger
+    BEFORE INSERT OR UPDATE ON employees
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_employee_salary();
+
+JSON AND JSONB
+
+JSON Operations:
+-- Create table with JSON column
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    attributes JSONB
+);
+
+-- Insert JSON data
+INSERT INTO products (name, attributes) VALUES
+('Laptop', '{"brand": "Dell", "ram": 16, "storage": "512GB SSD", "ports": ["USB-C", "HDMI", "USB-A"]}'),
+('Phone', '{"brand": "Apple", "model": "iPhone 14", "storage": "128GB", "color": "blue"}');
+
+-- Query JSON data
+SELECT name, attributes->>'brand' as brand
+FROM products;
+
+-- Query nested JSON
+SELECT name, attributes->'specs'->>'cpu' as cpu
+FROM products;
+
+-- JSON array operations
+SELECT name
+FROM products
+WHERE attributes->'ports' ? 'USB-C';
+
+-- Update JSON data
+UPDATE products
+SET attributes = attributes || '{"warranty": "3 years"}'
+WHERE id = 1;
+
+-- Remove JSON key
+UPDATE products
+SET attributes = attributes - 'color'
+WHERE id = 2;
+
+JSONB Advanced Operations:
+-- Containment
+SELECT * FROM products
+WHERE attributes @> '{"brand": "Apple"}';
+
+-- Path queries
+SELECT * FROM products
+WHERE attributes #> '{specs,ram}' = '"16GB"';
+
+-- JSON aggregation
+SELECT jsonb_agg(attributes) as all_attributes
+FROM products;
+
+-- JSON object building
+SELECT jsonb_build_object(
+    'product_name', name,
+    'brand', attributes->>'brand',
+    'total_storage', attributes->>'storage'
+) as product_summary
+FROM products;
+
+PERFORMANCE OPTIMIZATION
+
+Query Analysis:
+-- Explain query execution plan
+EXPLAIN SELECT * FROM employees WHERE salary > 75000;
+
+-- Explain with actual execution stats
+EXPLAIN ANALYZE SELECT * FROM employees WHERE salary > 75000;
+
+-- Explain with buffers and timing
+EXPLAIN (ANALYZE, BUFFERS, TIMING)
+SELECT e.first_name, d.name
+FROM employees e
+JOIN departments d ON e.department_id = d.id;
+
+Query Optimization:
+-- Use indexes effectively
+CREATE INDEX idx_employee_salary ON employees(salary);
+
+-- Optimize joins
+SELECT e.first_name, d.name
+FROM employees e
+JOIN departments d ON e.department_id = d.id
+WHERE e.salary > 75000;
+
+-- Use LIMIT for pagination
+SELECT * FROM employees
+ORDER BY hire_date
+LIMIT 20 OFFSET 40;
+
+-- Avoid SELECT *
+SELECT first_name, last_name, salary
+FROM employees
+WHERE department_id = 1;
+
+-- Use EXISTS instead of IN for large subqueries
+SELECT first_name, last_name
+FROM employees e
+WHERE EXISTS (
+    SELECT 1 FROM large_table lt
+    WHERE lt.employee_id = e.id
+);
+
+Statistics and Maintenance:
+-- Update table statistics
+ANALYZE employees;
+
+-- Vacuum to reclaim space
+VACUUM employees;
+
+-- Full vacuum with analyze
+VACUUM ANALYZE employees;
+
+-- Auto vacuum settings
+ALTER TABLE employees SET (autovacuum_enabled = true);
+
+DATABASE ADMINISTRATION
+
+User Management:
+-- Create user
+CREATE USER jane_doe WITH PASSWORD 'secure_password';
+
+-- Create user with specific attributes
+CREATE USER admin_user WITH
+    PASSWORD 'admin_pass'
+    SUPERUSER
+    CREATEDB
+    CREATEROLE;
+
+-- Alter user
+ALTER USER jane_doe WITH PASSWORD 'new_password';
+
+-- Grant privileges
+GRANT SELECT, INSERT, UPDATE ON employees TO jane_doe;
+GRANT ALL PRIVILEGES ON DATABASE company TO admin_user;
+
+-- Grant schema privileges
+GRANT USAGE ON SCHEMA public TO jane_doe;
+GRANT CREATE ON SCHEMA public TO jane_doe;
+
+-- Revoke privileges
+REVOKE INSERT ON employees FROM jane_doe;
+
+-- Drop user
+DROP USER jane_doe;
+
+Role Management:
+-- Create role
+CREATE ROLE developer;
+
+-- Grant privileges to role
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO developer;
+
+-- Grant role to user
+GRANT developer TO jane_doe;
+
+-- Set default role
+ALTER USER jane_doe SET ROLE developer;
+
+Backup and Restore:
+-- Database backup
+pg_dump company > company_backup.sql
+
+-- Compressed backup
+pg_dump -Fc company > company_backup.dump
+
+-- Backup specific tables
+pg_dump -t employees -t departments company > tables_backup.sql
+
+-- Restore database
+psql company < company_backup.sql
+
+-- Restore from compressed backup
+pg_restore -d company company_backup.dump
+
+-- Create database from backup
+createdb company_restored
+pg_restore -d company_restored company_backup.dump
+
+Configuration:
+-- View current settings
+SHOW ALL;
+
+-- Show specific setting
+SHOW shared_buffers;
+
+-- Set configuration (session level)
+SET work_mem = '256MB';
+
+-- Set configuration (persistent)
+ALTER SYSTEM SET shared_buffers = '256MB';
+SELECT pg_reload_conf();
+
+Monitoring:
+-- Current connections
+SELECT * FROM pg_stat_activity;
+
+-- Database statistics
+SELECT * FROM pg_stat_database;
+
+-- Table statistics
+SELECT * FROM pg_stat_user_tables;
+
+-- Index usage
+SELECT * FROM pg_stat_user_indexes;
+
+-- Long running queries
+SELECT
+    pid,
+    now() - pg_stat_activity.query_start AS duration,
+    query
+FROM pg_stat_activity
+WHERE (now() - pg_stat_activity.query_start) > interval '5 minutes';
+
+TRANSACTIONS
+
+Basic Transactions:
+-- Begin transaction
+BEGIN;
+
+UPDATE employees SET salary = salary * 1.1 WHERE department_id = 1;
+INSERT INTO salary_history (employee_id, change_date, change_type)
+SELECT id, CURRENT_DATE, 'annual_increase' FROM employees WHERE department_id = 1;
+
+-- Commit transaction
+COMMIT;
+
+-- Rollback transaction
+ROLLBACK;
+
+Transaction Isolation:
+-- Set isolation level
+BEGIN ISOLATION LEVEL READ COMMITTED;
+-- or
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+-- or
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+
+Savepoints:
+BEGIN;
+
+UPDATE employees SET salary = 75000 WHERE id = 1;
+
+SAVEPOINT sp1;
+
+UPDATE employees SET salary = 80000 WHERE id = 2;
+
+-- Rollback to savepoint
+ROLLBACK TO sp1;
+
+-- Release savepoint
+RELEASE SAVEPOINT sp1;
+
+COMMIT;
+
+SECURITY
+
+Row Level Security:
+-- Enable row level security
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+
+-- Create policy
+CREATE POLICY employee_policy ON employees
+    FOR ALL
+    TO employee_role
+    USING (department_id = get_current_user_dept());
+
+-- Drop policy
+DROP POLICY employee_policy ON employees;
+
+SSL Configuration:
+-- In postgresql.conf
+ssl = on
+ssl_cert_file = 'server.crt'
+ssl_key_file = 'server.key'
+ssl_ca_file = 'ca.crt'
+
+-- Force SSL connections
+hostssl all all 0.0.0.0/0 md5
+
+Data Encryption:
+-- Column level encryption
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Encrypt data
+INSERT INTO sensitive_data (id, encrypted_field)
+VALUES (1, crypt('sensitive_value', gen_salt('bf')));
+
+-- Decrypt data
+SELECT id, encrypted_field = crypt('sensitive_value', encrypted_field) as is_match
+FROM sensitive_data;
+
+REPLICATION
+
+Streaming Replication:
+-- On primary server (postgresql.conf)
+wal_level = replica
+max_wal_senders = 3
+wal_keep_segments = 64
+
+-- Create replication user
+CREATE USER replica_user REPLICATION LOGIN PASSWORD 'replica_pass';
+
+-- On standby server
+pg_basebackup -h primary_server -D /var/lib/postgresql/data -U replica_user -P -W
+
+-- recovery.conf on standby
+standby_mode = 'on'
+primary_conninfo = 'host=primary_server port=5432 user=replica_user password=replica_pass'
+
+Logical Replication:
+-- On publisher
+CREATE PUBLICATION company_pub FOR TABLE employees, departments;
+
+-- On subscriber
+CREATE SUBSCRIPTION company_sub
+CONNECTION 'host=publisher_host dbname=company user=replica_user password=replica_pass'
+PUBLICATION company_pub;
+
+BEST PRACTICES
+
+Query Performance:
+- Use appropriate indexes
+- Avoid SELECT * in production queries
+- Use LIMIT for large result sets
+- Optimize JOIN operations
+- Use EXPLAIN ANALYZE to understand query plans
+- Keep statistics up to date with ANALYZE
+
+Schema Design:
+- Normalize data appropriately
+- Use appropriate data types
+- Define proper constraints
+- Use foreign keys for referential integrity
+- Consider partitioning for large tables
+- Use meaningful naming conventions
+
+Security:
+- Use strong passwords
+- Implement role-based access control
+- Enable SSL/TLS connections
+- Regularly update PostgreSQL
+- Monitor access logs
+- Use row-level security when appropriate
+
+Maintenance:
+- Regular backups
+- Monitor disk space
+- Set up appropriate autovacuum settings
+- Monitor query performance
+- Keep statistics current
+- Plan for capacity growth
+
+Development:
+- Use transactions appropriately
+- Handle errors gracefully
+- Use prepared statements
+- Avoid long-running transactions
+- Test with realistic data volumes
+- Document database schema and procedures

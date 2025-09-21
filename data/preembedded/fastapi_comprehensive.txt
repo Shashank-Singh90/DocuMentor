@@ -1,0 +1,632 @@
+FastAPI Complete Framework Documentation
+
+FastAPI is a modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
+
+INSTALLATION AND SETUP
+
+Installation:
+pip install fastapi uvicorn[standard]
+
+# Optional dependencies
+pip install python-multipart  # For file uploads
+pip install python-jose[cryptography]  # For JWT
+pip install passlib[bcrypt]  # For password hashing
+pip install sqlalchemy  # For database ORM
+pip install alembic  # For database migrations
+
+Basic Application:
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="My API",
+    description="A sample API built with FastAPI",
+    version="1.0.0"
+)
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int, q: str = None):
+    return {"item_id": item_id, "q": q}
+
+# Run with: uvicorn main:app --reload
+
+PATH PARAMETERS
+
+Basic Path Parameters:
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    return {"item_id": item_id}
+
+# Path parameters with validation
+from fastapi import Path
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int = Path(..., title="The ID of the item", ge=1)):
+    return {"item_id": item_id}
+
+Enum Path Parameters:
+from enum import Enum
+
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
+
+@app.get("/models/{model_name}")
+def get_model(model_name: ModelName):
+    return {"model_name": model_name, "message": "Deep Learning FTW!"}
+
+QUERY PARAMETERS
+
+Basic Query Parameters:
+@app.get("/items/")
+def read_items(skip: int = 0, limit: int = 10):
+    return {"skip": skip, "limit": limit}
+
+Optional Parameters:
+from typing import Optional
+
+@app.get("/items/{item_id}")
+def read_item(item_id: str, q: Optional[str] = None, short: bool = False):
+    item = {"item_id": item_id}
+    if q:
+        item.update({"q": q})
+    if not short:
+        item.update({"description": "This is an amazing item"})
+    return item
+
+Query Parameter Validation:
+from fastapi import Query
+
+@app.get("/items/")
+def read_items(
+    q: Optional[str] = Query(
+        None,
+        min_length=3,
+        max_length=50,
+        regex="^fixedquery$"
+    )
+):
+    results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
+    if q:
+        results.update({"q": q})
+    return results
+
+REQUEST BODY
+
+Pydantic Models:
+from pydantic import BaseModel
+from typing import Optional
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+
+@app.post("/items/")
+def create_item(item: Item):
+    return item
+
+# Request body with path and query parameters
+@app.put("/items/{item_id}")
+def update_item(item_id: int, item: Item, q: Optional[str] = None):
+    result = {"item_id": item_id, **item.dict()}
+    if q:
+        result.update({"q": q})
+    return result
+
+Nested Models:
+from typing import List, Set
+
+class Image(BaseModel):
+    url: str
+    name: str
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+    tags: Set[str] = set()
+    images: Optional[List[Image]] = None
+
+@app.post("/items/")
+def create_item(item: Item):
+    return item
+
+FORM DATA AND FILE UPLOADS
+
+Form Data:
+from fastapi import Form
+
+@app.post("/login/")
+def login(username: str = Form(...), password: str = Form(...)):
+    return {"username": username}
+
+File Uploads:
+from fastapi import File, UploadFile
+
+@app.post("/files/")
+def create_file(file: bytes = File(...)):
+    return {"file_size": len(file)}
+
+@app.post("/uploadfile/")
+def create_upload_file(file: UploadFile = File(...)):
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": file.size
+    }
+
+Multiple File Uploads:
+@app.post("/files/")
+def create_files(files: List[bytes] = File(...)):
+    return {"file_sizes": [len(file) for file in files]}
+
+@app.post("/uploadfiles/")
+def create_upload_files(files: List[UploadFile] = File(...)):
+    return {"filenames": [file.filename for file in files]}
+
+RESPONSE MODELS
+
+Response Model:
+class ItemResponse(BaseModel):
+    name: str
+    price: float
+
+@app.post("/items/", response_model=ItemResponse)
+def create_item(item: Item):
+    return item
+
+# Response model with status codes
+from fastapi import status
+
+@app.post("/items/", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
+def create_item(item: Item):
+    return item
+
+Multiple Response Models:
+from fastapi.responses import JSONResponse
+
+@app.get("/items/{item_id}")
+def read_item(item_id: str):
+    if item_id == "foo":
+        return {"item_id": "foo", "value": "bar"}
+    else:
+        return JSONResponse(
+            status_code=404,
+            content={"message": "Item not found"}
+        )
+
+ERROR HANDLING
+
+HTTP Exceptions:
+from fastapi import HTTPException
+
+@app.get("/items/{item_id}")
+def read_item(item_id: str):
+    if item_id not in items:
+        raise HTTPException(
+            status_code=404,
+            detail="Item not found",
+            headers={"X-Error": "There goes my error"}
+        )
+    return {"item": items[item_id]}
+
+Custom Exception Handlers:
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+class UnicornException(Exception):
+    def __init__(self, name: str):
+        self.name = name
+
+@app.exception_handler(UnicornException)
+async def unicorn_exception_handler(request: Request, exc: UnicornException):
+    return JSONResponse(
+        status_code=418,
+        content={"message": f"Oops! {exc.name} did something. There goes a rainbow..."},
+    )
+
+DEPENDENCY INJECTION
+
+Basic Dependencies:
+from fastapi import Depends
+
+def common_parameters(q: Optional[str] = None, skip: int = 0, limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+
+@app.get("/items/")
+def read_items(commons: dict = Depends(common_parameters)):
+    return commons
+
+Class Dependencies:
+class CommonQueryParams:
+    def __init__(self, q: Optional[str] = None, skip: int = 0, limit: int = 100):
+        self.q = q
+        self.skip = skip
+        self.limit = limit
+
+@app.get("/items/")
+def read_items(commons: CommonQueryParams = Depends(CommonQueryParams)):
+    return commons
+
+Sub-dependencies:
+def query_extractor(q: Optional[str] = None):
+    return q
+
+def query_or_cookie_extractor(
+    q: str = Depends(query_extractor),
+    last_query: Optional[str] = Cookie(None)
+):
+    if not q:
+        return last_query
+    return q
+
+@app.get("/items/")
+def read_query(query_or_default: str = Depends(query_or_cookie_extractor)):
+    return {"q_or_cookie": query_or_default}
+
+SECURITY
+
+Basic Authentication:
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+security = HTTPBasic()
+
+@app.get("/users/me")
+def read_current_user(credentials: HTTPBasicCredentials = Depends(security)):
+    return {"username": credentials.username, "password": credentials.password}
+
+OAuth2 with Password Flow:
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+SECRET_KEY = "your-secret-key"
+ALGORITHM = "HS256"
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+@app.post("/token")
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    # Authenticate user
+    if form_data.username == "user" and form_data.password == "password":
+        access_token = create_access_token(data={"sub": form_data.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+    raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+DATABASE INTEGRATION
+
+SQLAlchemy Setup:
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Database model
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+
+Base.metadata.create_all(bind=engine)
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# API endpoint with database
+@app.post("/users/", response_model=UserResponse)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = User(email=user.email, hashed_password=get_password_hash(user.password))
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+MIDDLEWARE
+
+CORS Middleware:
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+Custom Middleware:
+from fastapi import Request
+import time
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+BACKGROUND TASKS
+
+Background Tasks:
+from fastapi import BackgroundTasks
+
+def write_notification(email: str, message=""):
+    with open("log.txt", mode="w") as email_file:
+        content = f"notification for {email}: {message}"
+        email_file.write(content)
+
+@app.post("/send-notification/{email}")
+def send_notification(email: str, background_tasks: BackgroundTasks):
+    background_tasks.add_task(write_notification, email, message="some notification")
+    return {"message": "Notification sent in the background"}
+
+WEBSOCKETS
+
+WebSocket Support:
+from fastapi import WebSocket, WebSocketDisconnect
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: int):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"Client #{client_id} says: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+TESTING
+
+Testing with TestClient:
+from fastapi.testclient import TestClient
+
+client = TestClient(app)
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"msg": "Hello World"}
+
+def test_create_item():
+    response = client.post(
+        "/items/",
+        json={"name": "Foo", "price": 10.5},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "Foo",
+        "price": 10.5,
+        "tax": None,
+    }
+
+DEPLOYMENT
+
+Production Server:
+# Install production server
+pip install gunicorn
+
+# Run with Gunicorn
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+
+Docker Deployment:
+# Dockerfile
+FROM python:3.9
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./app /code/app
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+
+Environment Variables:
+import os
+from functools import lru_cache
+
+class Settings(BaseModel):
+    app_name: str = "Awesome API"
+    admin_email: str
+    items_per_user: int = 50
+
+    class Config:
+        env_file = ".env"
+
+@lru_cache()
+def get_settings():
+    return Settings()
+
+@app.get("/info")
+def info(settings: Settings = Depends(get_settings)):
+    return {
+        "app_name": settings.app_name,
+        "admin_email": settings.admin_email,
+        "items_per_user": settings.items_per_user,
+    }
+
+ADVANCED FEATURES
+
+Custom Response Classes:
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+
+@app.get("/", response_class=HTMLResponse)
+def read_root():
+    return """
+    <html>
+        <head>
+            <title>Some HTML in here</title>
+        </head>
+        <body>
+            <h1>Look ma! HTML!</h1>
+        </body>
+    </html>
+    """
+
+@app.get("/redirect")
+def redirect():
+    return RedirectResponse(url="/")
+
+Streaming Responses:
+from fastapi.responses import StreamingResponse
+import io
+
+def generate_csv():
+    yield "name,age,city\n"
+    yield "Alice,25,New York\n"
+    yield "Bob,30,San Francisco\n"
+
+@app.get("/download-csv")
+def download_csv():
+    return StreamingResponse(
+        generate_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=data.csv"}
+    )
+
+Sub-applications:
+from fastapi import FastAPI
+
+app = FastAPI()
+sub_app = FastAPI()
+
+@sub_app.get("/sub")
+def read_sub():
+    return {"message": "Hello from sub app"}
+
+app.mount("/subapp", sub_app)
+
+BEST PRACTICES
+
+Project Structure:
+my_project/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── dependencies.py
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── items.py
+│   │   └── users.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── item.py
+│   │   └── user.py
+│   └── database.py
+├── tests/
+│   ├── __init__.py
+│   └── test_main.py
+└── requirements.txt
+
+Router Organization:
+# app/routers/items.py
+from fastapi import APIRouter
+
+router = APIRouter(
+    prefix="/items",
+    tags=["items"],
+    dependencies=[Depends(get_token_header)],
+    responses={404: {"description": "Not found"}},
+)
+
+@router.get("/")
+def read_items():
+    return [{"name": "Foo"}, {"name": "Bar"}]
+
+# main.py
+from app.routers import items, users
+
+app.include_router(items.router)
+app.include_router(users.router)
+
+Logging:
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    logger.info(f"Reading item {item_id}")
+    return {"item_id": item_id}
+
+Configuration Management:
+from pydantic import BaseSettings
+
+class Settings(BaseSettings):
+    database_url: str
+    secret_key: str
+    debug: bool = False
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+Performance Tips:
+- Use async/await for I/O bound operations
+- Implement proper caching strategies
+- Use connection pooling for databases
+- Optimize database queries
+- Use response models to control data serialization
+- Implement proper pagination for large datasets
+- Use background tasks for non-critical operations
+
+Security Best Practices:
+- Always validate input data
+- Use HTTPS in production
+- Implement proper authentication and authorization
+- Use environment variables for sensitive data
+- Validate file uploads
+- Implement rate limiting
+- Use CORS properly
+- Keep dependencies updated

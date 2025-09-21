@@ -1,0 +1,1179 @@
+Node.js Complete Runtime and Ecosystem Documentation
+
+Node.js is a JavaScript runtime built on Chrome's V8 JavaScript engine that allows you to run JavaScript on the server side.
+
+INSTALLATION AND SETUP
+
+Installation:
+# Download from nodejs.org or use package managers
+
+# Windows (Chocolatey)
+choco install nodejs
+
+# macOS (Homebrew)
+brew install node
+
+# Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Using Node Version Manager (NVM)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install node
+nvm use node
+
+Version Management:
+# Check versions
+node --version
+npm --version
+
+# Use specific Node version with NVM
+nvm install 18.18.0
+nvm use 18.18.0
+nvm alias default 18.18.0
+
+# List installed versions
+nvm list
+
+CORE MODULES
+
+File System (fs):
+const fs = require('fs');
+const path = require('path');
+
+// Synchronous file operations
+try {
+    const data = fs.readFileSync('file.txt', 'utf8');
+    console.log(data);
+} catch (err) {
+    console.error(err);
+}
+
+// Asynchronous file operations
+fs.readFile('file.txt', 'utf8', (err, data) => {
+    if (err) {
+        console.error(err);
+        return;
+    }
+    console.log(data);
+});
+
+// Promise-based file operations
+const fsPromises = require('fs').promises;
+
+async function readFileAsync() {
+    try {
+        const data = await fsPromises.readFile('file.txt', 'utf8');
+        console.log(data);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Write files
+fs.writeFile('output.txt', 'Hello, Node.js!', (err) => {
+    if (err) throw err;
+    console.log('File saved!');
+});
+
+// File stats
+fs.stat('file.txt', (err, stats) => {
+    if (err) throw err;
+    console.log('File size:', stats.size);
+    console.log('Is file:', stats.isFile());
+    console.log('Is directory:', stats.isDirectory());
+});
+
+// Directory operations
+fs.readdir('.', (err, files) => {
+    if (err) throw err;
+    files.forEach(file => {
+        console.log(file);
+    });
+});
+
+// Watch for file changes
+fs.watchFile('file.txt', (curr, prev) => {
+    console.log('File changed');
+});
+
+HTTP Module:
+const http = require('http');
+const url = require('url');
+const querystring = require('querystring');
+
+// Basic HTTP server
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('<h1>Hello, World!</h1>');
+});
+
+server.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+
+// HTTP server with routing
+const server2 = http.createServer((req, res) => {
+    const parsedUrl = url.parse(req.url, true);
+    const path = parsedUrl.pathname;
+    const query = parsedUrl.query;
+
+    res.setHeader('Content-Type', 'application/json');
+
+    if (path === '/api/users' && req.method === 'GET') {
+        res.statusCode = 200;
+        res.end(JSON.stringify({ users: ['Alice', 'Bob'] }));
+    } else if (path === '/api/users' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', () => {
+            const userData = JSON.parse(body);
+            res.statusCode = 201;
+            res.end(JSON.stringify({ message: 'User created', user: userData }));
+        });
+    } else {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ error: 'Not found' }));
+    }
+});
+
+// HTTP client
+const options = {
+    hostname: 'api.example.com',
+    port: 443,
+    path: '/data',
+    method: 'GET',
+    headers: {
+        'Authorization': 'Bearer token'
+    }
+};
+
+const req = http.request(options, (res) => {
+    let data = '';
+    res.on('data', chunk => {
+        data += chunk;
+    });
+    res.on('end', () => {
+        console.log(JSON.parse(data));
+    });
+});
+
+req.on('error', (err) => {
+    console.error(err);
+});
+
+req.end();
+
+Path Module:
+const path = require('path');
+
+// Path manipulation
+console.log(path.join('/users', 'john', 'documents', 'file.txt'));
+// Output: /users/john/documents/file.txt
+
+console.log(path.resolve('file.txt'));
+// Output: Absolute path to file.txt
+
+console.log(path.extname('file.txt')); // .txt
+console.log(path.basename('/path/to/file.txt')); // file.txt
+console.log(path.dirname('/path/to/file.txt')); // /path/to
+
+// Path parsing
+const parsed = path.parse('/path/to/file.txt');
+console.log(parsed);
+// {
+//   root: '/',
+//   dir: '/path/to',
+//   base: 'file.txt',
+//   ext: '.txt',
+//   name: 'file'
+// }
+
+URL Module:
+const { URL, URLSearchParams } = require('url');
+
+// URL parsing
+const myUrl = new URL('https://example.com:8080/path?name=john&age=30#section');
+console.log(myUrl.hostname); // example.com
+console.log(myUrl.pathname); // /path
+console.log(myUrl.search); // ?name=john&age=30
+
+// URL search params
+const params = new URLSearchParams(myUrl.search);
+console.log(params.get('name')); // john
+params.set('city', 'New York');
+console.log(params.toString()); // name=john&age=30&city=New+York
+
+Events Module:
+const EventEmitter = require('events');
+
+class MyEmitter extends EventEmitter {}
+
+const myEmitter = new MyEmitter();
+
+// Event listener
+myEmitter.on('event', (data) => {
+    console.log('Event received:', data);
+});
+
+// One-time listener
+myEmitter.once('start', () => {
+    console.log('Started only once');
+});
+
+// Emit events
+myEmitter.emit('event', { message: 'Hello' });
+myEmitter.emit('start');
+
+// Error handling
+myEmitter.on('error', (err) => {
+    console.error('Error occurred:', err);
+});
+
+Streams:
+const fs = require('fs');
+const { Transform } = require('stream');
+
+// Readable stream
+const readableStream = fs.createReadStream('input.txt');
+
+readableStream.on('data', (chunk) => {
+    console.log('Received chunk:', chunk.toString());
+});
+
+readableStream.on('end', () => {
+    console.log('Stream ended');
+});
+
+// Writable stream
+const writableStream = fs.createWriteStream('output.txt');
+writableStream.write('Hello ');
+writableStream.write('World!');
+writableStream.end();
+
+// Transform stream
+const upperCaseTransform = new Transform({
+    transform(chunk, encoding, callback) {
+        this.push(chunk.toString().toUpperCase());
+        callback();
+    }
+});
+
+// Pipe streams
+fs.createReadStream('input.txt')
+    .pipe(upperCaseTransform)
+    .pipe(fs.createWriteStream('output.txt'));
+
+Buffer:
+// Creating buffers
+const buf1 = Buffer.alloc(10); // Creates zero-filled buffer
+const buf2 = Buffer.from('Hello', 'utf8');
+const buf3 = Buffer.from([1, 2, 3, 4, 5]);
+
+// Buffer operations
+console.log(buf2.toString()); // Hello
+console.log(buf2.length); // 5
+
+// Buffer concatenation
+const combined = Buffer.concat([buf2, Buffer.from(' World')]);
+console.log(combined.toString()); // Hello World
+
+// Buffer comparison
+const buf4 = Buffer.from('ABC');
+const buf5 = Buffer.from('ABC');
+console.log(buf4.equals(buf5)); // true
+
+Process:
+// Command line arguments
+console.log('Arguments:', process.argv);
+
+// Environment variables
+console.log('NODE_ENV:', process.env.NODE_ENV);
+process.env.MY_VAR = 'custom value';
+
+// Exit codes
+process.on('exit', (code) => {
+    console.log(`Process exiting with code: ${code}`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('Received SIGINT, shutting down gracefully');
+    process.exit(0);
+});
+
+// Process information
+console.log('PID:', process.pid);
+console.log('Platform:', process.platform);
+console.log('Architecture:', process.arch);
+console.log('Node version:', process.version);
+
+NPM PACKAGE MANAGEMENT
+
+Package.json:
+{
+  "name": "my-node-app",
+  "version": "1.0.0",
+  "description": "A sample Node.js application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "build": "webpack --mode production",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
+  },
+  "keywords": ["node", "javascript", "api"],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2",
+    "eslint": "^8.46.0",
+    "prettier": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
+
+NPM Commands:
+# Install dependencies
+npm install
+npm install express
+npm install --save-dev nodemon
+
+# Update packages
+npm update
+npm outdated
+
+# Remove packages
+npm uninstall express
+npm uninstall --save-dev nodemon
+
+# Global packages
+npm install -g nodemon
+npm uninstall -g nodemon
+
+# Scripts
+npm start
+npm run dev
+npm test
+
+# Package information
+npm list
+npm list --depth=0
+npm info express
+
+# Security
+npm audit
+npm audit fix
+
+# Publishing
+npm login
+npm publish
+npm version patch
+
+EXPRESS.JS FRAMEWORK
+
+Basic Express App:
+const express = require('express');
+const app = express();
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Basic route
+app.get('/', (req, res) => {
+    res.send('Hello, Express!');
+});
+
+// Route with parameters
+app.get('/users/:id', (req, res) => {
+    const userId = req.params.id;
+    res.json({ userId: userId });
+});
+
+// POST route
+app.post('/users', (req, res) => {
+    const userData = req.body;
+    res.status(201).json({ message: 'User created', user: userData });
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+Middleware:
+// Custom middleware
+const logger = (req, res, next) => {
+    console.log(`${req.method} ${req.url} - ${new Date().toISOString()}`);
+    next();
+};
+
+app.use(logger);
+
+// Error handling middleware
+const errorHandler = (err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+};
+
+app.use(errorHandler);
+
+// Authentication middleware
+const authenticate = (req, res, next) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+    // Verify token logic here
+    next();
+};
+
+app.use('/api/protected', authenticate);
+
+Router:
+const express = require('express');
+const router = express.Router();
+
+// Router middleware
+router.use((req, res, next) => {
+    console.log('Router middleware');
+    next();
+});
+
+// Router routes
+router.get('/', (req, res) => {
+    res.json({ message: 'Users endpoint' });
+});
+
+router.get('/:id', (req, res) => {
+    res.json({ userId: req.params.id });
+});
+
+router.post('/', (req, res) => {
+    res.status(201).json({ message: 'User created' });
+});
+
+// Mount router
+app.use('/api/users', router);
+
+Template Engines:
+// EJS
+app.set('view engine', 'ejs');
+app.set('views', './views');
+
+app.get('/profile', (req, res) => {
+    const user = { name: 'John', email: 'john@example.com' };
+    res.render('profile', { user: user });
+});
+
+// Handlebars
+const handlebars = require('express-handlebars');
+app.engine('handlebars', handlebars.engine());
+app.set('view engine', 'handlebars');
+
+ASYNCHRONOUS PROGRAMMING
+
+Callbacks:
+const fs = require('fs');
+
+function readFileCallback(filename, callback) {
+    fs.readFile(filename, 'utf8', (err, data) => {
+        if (err) {
+            callback(err, null);
+        } else {
+            callback(null, data);
+        }
+    });
+}
+
+readFileCallback('file.txt', (err, data) => {
+    if (err) {
+        console.error('Error:', err);
+    } else {
+        console.log('Data:', data);
+    }
+});
+
+Promises:
+const fs = require('fs').promises;
+
+function readFilePromise(filename) {
+    return fs.readFile(filename, 'utf8');
+}
+
+readFilePromise('file.txt')
+    .then(data => {
+        console.log('Data:', data);
+    })
+    .catch(err => {
+        console.error('Error:', err);
+    });
+
+// Promise chaining
+readFilePromise('file1.txt')
+    .then(data1 => {
+        console.log('File 1:', data1);
+        return readFilePromise('file2.txt');
+    })
+    .then(data2 => {
+        console.log('File 2:', data2);
+    })
+    .catch(err => {
+        console.error('Error:', err);
+    });
+
+// Promise.all
+Promise.all([
+    readFilePromise('file1.txt'),
+    readFilePromise('file2.txt'),
+    readFilePromise('file3.txt')
+])
+.then(results => {
+    console.log('All files read:', results);
+})
+.catch(err => {
+    console.error('Error reading files:', err);
+});
+
+Async/Await:
+async function readMultipleFiles() {
+    try {
+        const data1 = await readFilePromise('file1.txt');
+        const data2 = await readFilePromise('file2.txt');
+        const data3 = await readFilePromise('file3.txt');
+
+        console.log('Files:', { data1, data2, data3 });
+    } catch (err) {
+        console.error('Error:', err);
+    }
+}
+
+// Parallel execution with async/await
+async function readFilesParallel() {
+    try {
+        const [data1, data2, data3] = await Promise.all([
+            readFilePromise('file1.txt'),
+            readFilePromise('file2.txt'),
+            readFilePromise('file3.txt')
+        ]);
+
+        console.log('Files:', { data1, data2, data3 });
+    } catch (err) {
+        console.error('Error:', err);
+    }
+}
+
+DATABASE INTEGRATION
+
+MongoDB with Mongoose:
+const mongoose = require('mongoose');
+
+// Connect to MongoDB
+mongoose.connect('mongodb://localhost:27017/myapp', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+// Schema definition
+const userSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    age: { type: Number, min: 0 },
+    createdAt: { type: Date, default: Date.now }
+});
+
+// Model
+const User = mongoose.model('User', userSchema);
+
+// CRUD operations
+async function createUser(userData) {
+    try {
+        const user = new User(userData);
+        const savedUser = await user.save();
+        return savedUser;
+    } catch (err) {
+        throw err;
+    }
+}
+
+async function findUsers() {
+    try {
+        const users = await User.find();
+        return users;
+    } catch (err) {
+        throw err;
+    }
+}
+
+async function updateUser(id, updateData) {
+    try {
+        const user = await User.findByIdAndUpdate(id, updateData, { new: true });
+        return user;
+    } catch (err) {
+        throw err;
+    }
+}
+
+async function deleteUser(id) {
+    try {
+        await User.findByIdAndDelete(id);
+    } catch (err) {
+        throw err;
+    }
+}
+
+PostgreSQL with pg:
+const { Pool } = require('pg');
+
+const pool = new Pool({
+    user: 'username',
+    host: 'localhost',
+    database: 'mydb',
+    password: 'password',
+    port: 5432,
+});
+
+async function queryDatabase(text, params) {
+    try {
+        const result = await pool.query(text, params);
+        return result.rows;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Example usage
+async function getUsers() {
+    const users = await queryDatabase('SELECT * FROM users');
+    return users;
+}
+
+async function createUser(name, email) {
+    const query = 'INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *';
+    const result = await queryDatabase(query, [name, email]);
+    return result[0];
+}
+
+AUTHENTICATION AND SECURITY
+
+JWT Authentication:
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+
+// Generate JWT token
+function generateToken(userId) {
+    return jwt.sign({ userId: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+}
+
+// Verify JWT token
+function verifyToken(token) {
+    return jwt.verify(token, process.env.JWT_SECRET);
+}
+
+// Password hashing
+async function hashPassword(password) {
+    const saltRounds = 10;
+    return await bcrypt.hash(password, saltRounds);
+}
+
+async function comparePassword(password, hash) {
+    return await bcrypt.compare(password, hash);
+}
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid token' });
+    }
+};
+
+Security Best Practices:
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cors = require('cors');
+
+// Helmet for security headers
+app.use(helmet());
+
+// CORS configuration
+app.use(cors({
+    origin: ['http://localhost:3000', 'https://yourdomain.com'],
+    credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+// Input validation
+const { body, validationResult } = require('express-validator');
+
+app.post('/users',
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 6 }),
+    (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        // Process valid data
+    }
+);
+
+TESTING
+
+Unit Testing with Jest:
+// math.js
+function add(a, b) {
+    return a + b;
+}
+
+function multiply(a, b) {
+    return a * b;
+}
+
+module.exports = { add, multiply };
+
+// math.test.js
+const { add, multiply } = require('./math');
+
+describe('Math functions', () => {
+    test('adds 1 + 2 to equal 3', () => {
+        expect(add(1, 2)).toBe(3);
+    });
+
+    test('multiplies 3 * 4 to equal 12', () => {
+        expect(multiply(3, 4)).toBe(12);
+    });
+});
+
+Integration Testing:
+const request = require('supertest');
+const app = require('./app');
+
+describe('API Endpoints', () => {
+    test('GET /api/users should return users', async () => {
+        const response = await request(app)
+            .get('/api/users')
+            .expect(200);
+
+        expect(response.body).toHaveProperty('users');
+        expect(Array.isArray(response.body.users)).toBe(true);
+    });
+
+    test('POST /api/users should create user', async () => {
+        const userData = {
+            name: 'John Doe',
+            email: 'john@example.com'
+        };
+
+        const response = await request(app)
+            .post('/api/users')
+            .send(userData)
+            .expect(201);
+
+        expect(response.body).toHaveProperty('user');
+        expect(response.body.user.name).toBe(userData.name);
+    });
+});
+
+Mocking:
+// userService.js
+const axios = require('axios');
+
+async function fetchUserData(userId) {
+    const response = await axios.get(`/api/users/${userId}`);
+    return response.data;
+}
+
+module.exports = { fetchUserData };
+
+// userService.test.js
+const axios = require('axios');
+const { fetchUserData } = require('./userService');
+
+jest.mock('axios');
+const mockedAxios = axios;
+
+describe('User Service', () => {
+    test('should fetch user data', async () => {
+        const userData = { id: 1, name: 'John Doe' };
+        mockedAxios.get.mockResolvedValue({ data: userData });
+
+        const result = await fetchUserData(1);
+
+        expect(result).toEqual(userData);
+        expect(mockedAxios.get).toHaveBeenCalledWith('/api/users/1');
+    });
+});
+
+ERROR HANDLING
+
+Global Error Handling:
+// Custom error class
+class AppError extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.statusCode = statusCode;
+        this.isOperational = true;
+
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
+// Async error wrapper
+const catchAsync = (fn) => {
+    return (req, res, next) => {
+        fn(req, res, next).catch(next);
+    };
+};
+
+// Global error handler
+const globalErrorHandler = (err, req, res, next) => {
+    err.statusCode = err.statusCode || 500;
+    err.status = err.status || 'error';
+
+    if (process.env.NODE_ENV === 'development') {
+        res.status(err.statusCode).json({
+            status: err.status,
+            error: err,
+            message: err.message,
+            stack: err.stack
+        });
+    } else {
+        if (err.isOperational) {
+            res.status(err.statusCode).json({
+                status: err.status,
+                message: err.message
+            });
+        } else {
+            console.error('ERROR:', err);
+            res.status(500).json({
+                status: 'error',
+                message: 'Something went wrong!'
+            });
+        }
+    }
+};
+
+app.use(globalErrorHandler);
+
+// Unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+    console.log('Unhandled Promise Rejection:', err.message);
+    server.close(() => {
+        process.exit(1);
+    });
+});
+
+// Uncaught exceptions
+process.on('uncaughtException', (err) => {
+    console.log('Uncaught Exception:', err.message);
+    process.exit(1);
+});
+
+WEBSOCKETS
+
+Socket.IO:
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+
+// Socket connection
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    // Join room
+    socket.on('join', (room) => {
+        socket.join(room);
+        socket.to(room).emit('user-joined', socket.id);
+    });
+
+    // Handle messages
+    socket.on('message', (data) => {
+        io.to(data.room).emit('message', {
+            user: socket.id,
+            message: data.message,
+            timestamp: Date.now()
+        });
+    });
+
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+server.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+
+Native WebSockets:
+const WebSocket = require('ws');
+
+const wss = new WebSocket.Server({ port: 8080 });
+
+wss.on('connection', (ws) => {
+    console.log('WebSocket connected');
+
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+
+        // Echo message to all clients
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(message);
+            }
+        });
+    });
+
+    ws.on('close', () => {
+        console.log('WebSocket disconnected');
+    });
+
+    // Send welcome message
+    ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to WebSocket server' }));
+});
+
+CLUSTERING AND PERFORMANCE
+
+Cluster Module:
+const cluster = require('cluster');
+const numCPUs = require('os').cpus().length;
+
+if (cluster.isMaster) {
+    console.log(`Master ${process.pid} is running`);
+
+    // Fork workers
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${worker.process.pid} died`);
+        cluster.fork();
+    });
+} else {
+    // Worker process
+    const express = require('express');
+    const app = express();
+
+    app.get('/', (req, res) => {
+        res.send(`Hello from worker ${process.pid}`);
+    });
+
+    app.listen(3000, () => {
+        console.log(`Worker ${process.pid} started`);
+    });
+}
+
+Performance Monitoring:
+const perf_hooks = require('perf_hooks');
+
+// Performance measurement
+const start = perf_hooks.performance.now();
+
+// Some operation
+setTimeout(() => {
+    const end = perf_hooks.performance.now();
+    console.log(`Operation took ${end - start} milliseconds`);
+}, 1000);
+
+// Memory usage
+setInterval(() => {
+    const used = process.memoryUsage();
+    console.log('Memory usage:');
+    for (let key in used) {
+        console.log(`${key}: ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
+    }
+}, 5000);
+
+DEPLOYMENT
+
+Environment Variables:
+// .env file
+NODE_ENV=production
+PORT=3000
+DB_HOST=localhost
+DB_USER=admin
+DB_PASS=secret
+JWT_SECRET=supersecret
+
+// Using dotenv
+require('dotenv').config();
+
+const config = {
+    port: process.env.PORT || 3000,
+    dbHost: process.env.DB_HOST || 'localhost',
+    jwtSecret: process.env.JWT_SECRET
+};
+
+PM2 Process Manager:
+# Install PM2
+npm install -g pm2
+
+# Start application
+pm2 start app.js
+
+# Start with cluster mode
+pm2 start app.js -i max
+
+# Configuration file (ecosystem.config.js)
+module.exports = {
+  apps: [{
+    name: 'my-app',
+    script: 'app.js',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'development'
+    },
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    }
+  }]
+};
+
+# Deploy with config
+pm2 start ecosystem.config.js --env production
+
+# PM2 commands
+pm2 list
+pm2 restart my-app
+pm2 stop my-app
+pm2 delete my-app
+pm2 logs my-app
+pm2 monit
+
+Docker Deployment:
+# Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3000
+
+USER node
+
+CMD ["node", "app.js"]
+
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+    depends_on:
+      - db
+
+  db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+
+BEST PRACTICES
+
+Code Organization:
+project/
+├── src/
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── utils/
+│   └── config/
+├── tests/
+├── docs/
+├── package.json
+├── .env.example
+├── .gitignore
+└── README.md
+
+Error Handling:
+- Use try-catch blocks for async operations
+- Implement centralized error handling
+- Log errors appropriately
+- Return meaningful error messages
+- Handle different types of errors differently
+
+Security:
+- Validate and sanitize all inputs
+- Use HTTPS in production
+- Implement rate limiting
+- Keep dependencies updated
+- Use environment variables for secrets
+- Implement proper authentication and authorization
+
+Performance:
+- Use clustering for CPU-intensive tasks
+- Implement caching strategies
+- Optimize database queries
+- Use compression middleware
+- Monitor application performance
+- Use connection pooling for databases
+
+Testing:
+- Write unit tests for all functions
+- Implement integration tests for APIs
+- Use mocking for external dependencies
+- Maintain good test coverage
+- Use CI/CD for automated testing
+
+Development:
+- Use ESLint and Prettier for code quality
+- Implement Git hooks for pre-commit checks
+- Use meaningful commit messages
+- Document your APIs
+- Use semantic versioning
+- Keep dependencies up to date

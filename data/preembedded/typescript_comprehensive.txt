@@ -1,0 +1,1330 @@
+TypeScript Complete Type System and Compiler Documentation
+
+TypeScript is a strongly typed programming language that builds on JavaScript by adding static type definitions.
+
+INSTALLATION AND SETUP
+
+Installation:
+# Global installation
+npm install -g typescript
+
+# Local installation (recommended)
+npm install --save-dev typescript
+
+# Check version
+tsc --version
+
+Project Setup:
+# Initialize TypeScript project
+tsc --init
+
+# Package.json with TypeScript
+{
+  "name": "my-typescript-project",
+  "version": "1.0.0",
+  "devDependencies": {
+    "typescript": "^5.2.0",
+    "@types/node": "^20.5.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  }
+}
+
+TSConfig Configuration:
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020", "DOM"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+BASIC TYPES
+
+Primitive Types:
+// Number
+let age: number = 30;
+let price: number = 99.99;
+let hexNumber: number = 0xFF;
+let binaryNumber: number = 0b101;
+let octalNumber: number = 0o744;
+
+// String
+let name: string = "John Doe";
+let message: string = `Hello, ${name}!`;
+let multiLine: string = `
+  This is a
+  multi-line string
+`;
+
+// Boolean
+let isActive: boolean = true;
+let isCompleted: boolean = false;
+
+// Null and Undefined
+let nullValue: null = null;
+let undefinedValue: undefined = undefined;
+
+// Void (used for functions that don't return anything)
+function logMessage(): void {
+  console.log("Hello World");
+}
+
+// Never (represents values that never occur)
+function throwError(message: string): never {
+  throw new Error(message);
+}
+
+// Any (avoid using when possible)
+let value: any = 42;
+value = "hello";
+value = true;
+
+// Unknown (safer alternative to any)
+let userInput: unknown;
+userInput = 5;
+userInput = "hello";
+
+if (typeof userInput === "string") {
+  console.log(userInput.toUpperCase()); // Type narrowing
+}
+
+Arrays and Tuples:
+// Arrays
+let numbers: number[] = [1, 2, 3, 4, 5];
+let names: Array<string> = ["Alice", "Bob", "Charlie"];
+let mixed: (string | number)[] = ["hello", 42, "world"];
+
+// Read-only arrays
+let readOnlyNumbers: ReadonlyArray<number> = [1, 2, 3];
+// readOnlyNumbers.push(4); // Error: Property 'push' does not exist
+
+// Tuples
+let person: [string, number] = ["John", 30];
+let coordinates: [number, number, number] = [10, 20, 30];
+
+// Optional tuple elements
+let optionalTuple: [string, number?] = ["hello"];
+
+// Rest elements in tuples
+let restTuple: [string, ...number[]] = ["hello", 1, 2, 3];
+
+// Named tuples
+let namedTuple: [name: string, age: number] = ["John", 30];
+
+Object Types:
+// Object type annotation
+let user: { name: string; age: number } = {
+  name: "John",
+  age: 30
+};
+
+// Optional properties
+let config: { host: string; port?: number } = {
+  host: "localhost"
+};
+
+// Readonly properties
+let point: { readonly x: number; readonly y: number } = {
+  x: 10,
+  y: 20
+};
+
+// Index signatures
+let scores: { [key: string]: number } = {
+  math: 95,
+  english: 87,
+  science: 92
+};
+
+// Method signatures
+let calculator: {
+  add(a: number, b: number): number;
+  subtract: (a: number, b: number) => number;
+} = {
+  add(a, b) { return a + b; },
+  subtract: (a, b) => a - b
+};
+
+ADVANCED TYPES
+
+Union Types:
+// Basic union
+let id: string | number;
+id = "abc123";
+id = 123;
+
+// Union with literal types
+let size: "small" | "medium" | "large" = "medium";
+
+// Function with union parameters
+function formatId(id: string | number): string {
+  if (typeof id === "string") {
+    return id.toUpperCase();
+  } else {
+    return id.toString();
+  }
+}
+
+// Arrays with union types
+let mixedArray: (string | number)[] = ["hello", 42, "world"];
+
+Intersection Types:
+interface Person {
+  name: string;
+  age: number;
+}
+
+interface Employee {
+  employeeId: string;
+  department: string;
+}
+
+// Intersection type
+type PersonEmployee = Person & Employee;
+
+let employee: PersonEmployee = {
+  name: "John",
+  age: 30,
+  employeeId: "EMP001",
+  department: "Engineering"
+};
+
+// Mixing types and interfaces
+type ContactInfo = {
+  email: string;
+  phone: string;
+};
+
+type FullEmployee = Person & Employee & ContactInfo;
+
+Literal Types:
+// String literals
+let direction: "north" | "south" | "east" | "west";
+direction = "north"; // OK
+// direction = "up"; // Error
+
+// Numeric literals
+let diceRoll: 1 | 2 | 3 | 4 | 5 | 6;
+
+// Boolean literals
+let success: true = true;
+
+// Template literal types
+type Greeting = `Hello ${string}`;
+let greeting: Greeting = "Hello World"; // OK
+// let greeting2: Greeting = "Hi there"; // Error
+
+// Template literal with unions
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type ApiUrl = `/${string}`;
+type ApiEndpoint = `${HttpMethod} ${ApiUrl}`;
+
+Conditional Types:
+// Basic conditional type
+type IsString<T> = T extends string ? true : false;
+type Test1 = IsString<string>; // true
+type Test2 = IsString<number>; // false
+
+// Conditional type with infer
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+type FunctionReturn = ReturnType<() => string>; // string
+
+// Distributive conditional types
+type ToArray<T> = T extends any ? T[] : never;
+type Arrays = ToArray<string | number>; // string[] | number[]
+
+Mapped Types:
+// Basic mapped type
+type Optional<T> = {
+  [K in keyof T]?: T[K];
+};
+
+type User = {
+  name: string;
+  age: number;
+  email: string;
+};
+
+type OptionalUser = Optional<User>;
+// { name?: string; age?: number; email?: string; }
+
+// Readonly mapped type
+type Readonly<T> = {
+  readonly [K in keyof T]: T[K];
+};
+
+// Pick utility type
+type UserNameAndAge = Pick<User, "name" | "age">;
+// { name: string; age: number; }
+
+// Omit utility type
+type UserWithoutEmail = Omit<User, "email">;
+// { name: string; age: number; }
+
+// Record utility type
+type Permissions = Record<"read" | "write" | "delete", boolean>;
+// { read: boolean; write: boolean; delete: boolean; }
+
+Key Remapping:
+// Template literal key remapping
+type Getters<T> = {
+  [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K];
+};
+
+type UserGetters = Getters<User>;
+// {
+//   getName: () => string;
+//   getAge: () => number;
+//   getEmail: () => string;
+// }
+
+// Filtering with never
+type RemoveNumberProps<T> = {
+  [K in keyof T as T[K] extends number ? never : K]: T[K];
+};
+
+INTERFACES
+
+Basic Interfaces:
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  isActive: boolean;
+}
+
+// Using the interface
+let user: User = {
+  id: 1,
+  name: "John Doe",
+  email: "john@example.com",
+  isActive: true
+};
+
+Optional and Readonly Properties:
+interface Config {
+  readonly apiUrl: string;
+  timeout?: number;
+  retries?: number;
+}
+
+let config: Config = {
+  apiUrl: "https://api.example.com"
+};
+
+// config.apiUrl = "new url"; // Error: Cannot assign to readonly property
+
+Method Signatures:
+interface Calculator {
+  add(a: number, b: number): number;
+  subtract(a: number, b: number): number;
+  multiply?: (a: number, b: number) => number;
+}
+
+class BasicCalculator implements Calculator {
+  add(a: number, b: number): number {
+    return a + b;
+  }
+
+  subtract(a: number, b: number): number {
+    return a - b;
+  }
+}
+
+Extending Interfaces:
+interface Animal {
+  name: string;
+  age: number;
+}
+
+interface Dog extends Animal {
+  breed: string;
+  bark(): void;
+}
+
+interface Cat extends Animal {
+  breed: string;
+  meow(): void;
+}
+
+// Multiple inheritance
+interface Pet extends Animal {
+  owner: string;
+}
+
+interface GuardDog extends Dog, Pet {
+  isGuarding: boolean;
+}
+
+Interface Merging:
+// Declaration merging
+interface Window {
+  customProperty: string;
+}
+
+interface Window {
+  anotherProperty: number;
+}
+
+// Now Window has both properties
+declare global {
+  interface Window {
+    myGlobalFunction(): void;
+  }
+}
+
+Generic Interfaces:
+interface Container<T> {
+  value: T;
+  getValue(): T;
+  setValue(value: T): void;
+}
+
+class StringContainer implements Container<string> {
+  constructor(public value: string) {}
+
+  getValue(): string {
+    return this.value;
+  }
+
+  setValue(value: string): void {
+    this.value = value;
+  }
+}
+
+// Generic interface with constraints
+interface Comparable<T extends string | number> {
+  compareTo(other: T): number;
+}
+
+CLASSES
+
+Basic Classes:
+class Person {
+  // Properties
+  public name: string;
+  private age: number;
+  protected email: string;
+  readonly id: number;
+
+  // Constructor
+  constructor(name: string, age: number, email: string) {
+    this.name = name;
+    this.age = age;
+    this.email = email;
+    this.id = Math.random();
+  }
+
+  // Methods
+  public introduce(): string {
+    return `Hi, I'm ${this.name}`;
+  }
+
+  private calculateBirthYear(): number {
+    return new Date().getFullYear() - this.age;
+  }
+
+  protected getEmail(): string {
+    return this.email;
+  }
+}
+
+// Parameter properties (shorthand)
+class Employee {
+  constructor(
+    public name: string,
+    private salary: number,
+    protected department: string
+  ) {}
+
+  public getSalary(): number {
+    return this.salary;
+  }
+}
+
+Inheritance:
+class Manager extends Employee {
+  constructor(
+    name: string,
+    salary: number,
+    department: string,
+    public teamSize: number
+  ) {
+    super(name, salary, department);
+  }
+
+  public getTeamSize(): number {
+    return this.teamSize;
+  }
+
+  // Override method
+  public introduce(): string {
+    return `Hi, I'm ${this.name}, manager of ${this.department}`;
+  }
+
+  // Access protected member
+  public getDepartment(): string {
+    return this.department;
+  }
+}
+
+Abstract Classes:
+abstract class Animal {
+  protected name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  // Abstract method - must be implemented by subclasses
+  abstract makeSound(): string;
+
+  // Concrete method
+  public getName(): string {
+    return this.name;
+  }
+}
+
+class Dog extends Animal {
+  makeSound(): string {
+    return "Woof!";
+  }
+}
+
+class Cat extends Animal {
+  makeSound(): string {
+    return "Meow!";
+  }
+}
+
+Static Members:
+class MathUtils {
+  static readonly PI = 3.14159;
+  static circleArea(radius: number): number {
+    return this.PI * radius * radius;
+  }
+}
+
+console.log(MathUtils.PI);
+console.log(MathUtils.circleArea(5));
+
+Getters and Setters:
+class Rectangle {
+  private _width: number = 0;
+  private _height: number = 0;
+
+  get width(): number {
+    return this._width;
+  }
+
+  set width(value: number) {
+    if (value < 0) {
+      throw new Error("Width cannot be negative");
+    }
+    this._width = value;
+  }
+
+  get height(): number {
+    return this._height;
+  }
+
+  set height(value: number) {
+    if (value < 0) {
+      throw new Error("Height cannot be negative");
+    }
+    this._height = value;
+  }
+
+  get area(): number {
+    return this._width * this._height;
+  }
+}
+
+Generic Classes:
+class GenericContainer<T> {
+  private items: T[] = [];
+
+  add(item: T): void {
+    this.items.push(item);
+  }
+
+  get(index: number): T | undefined {
+    return this.items[index];
+  }
+
+  getAll(): T[] {
+    return [...this.items];
+  }
+
+  size(): number {
+    return this.items.length;
+  }
+}
+
+const numberContainer = new GenericContainer<number>();
+numberContainer.add(1);
+numberContainer.add(2);
+
+const stringContainer = new GenericContainer<string>();
+stringContainer.add("hello");
+stringContainer.add("world");
+
+FUNCTIONS
+
+Function Types:
+// Function declaration
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+// Function expression
+const multiply = function(a: number, b: number): number {
+  return a * b;
+};
+
+// Arrow function
+const divide = (a: number, b: number): number => a / b;
+
+// Function type annotation
+let operation: (a: number, b: number) => number;
+operation = add;
+operation = multiply;
+
+Optional and Default Parameters:
+function greet(name: string, greeting?: string): string {
+  return `${greeting || "Hello"}, ${name}!`;
+}
+
+function createUser(name: string, age: number = 18): User {
+  return { id: Math.random(), name, age, email: "", isActive: true };
+}
+
+Rest Parameters:
+function sum(...numbers: number[]): number {
+  return numbers.reduce((total, num) => total + num, 0);
+}
+
+function logMessages(prefix: string, ...messages: string[]): void {
+  messages.forEach(msg => console.log(`${prefix}: ${msg}`));
+}
+
+Function Overloads:
+// Overload signatures
+function createDate(timestamp: number): Date;
+function createDate(year: number, month: number, day: number): Date;
+function createDate(dateString: string): Date;
+
+// Implementation signature
+function createDate(value: number | string, month?: number, day?: number): Date {
+  if (typeof value === "number" && month !== undefined && day !== undefined) {
+    return new Date(value, month - 1, day);
+  } else if (typeof value === "number") {
+    return new Date(value);
+  } else {
+    return new Date(value);
+  }
+}
+
+Generic Functions:
+function identity<T>(arg: T): T {
+  return arg;
+}
+
+let output1 = identity<string>("hello");
+let output2 = identity<number>(42);
+let output3 = identity("world"); // Type inference
+
+// Generic function with constraints
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+let person = { name: "John", age: 30 };
+let name = getProperty(person, "name"); // string
+let age = getProperty(person, "age");   // number
+
+// Multiple type parameters
+function merge<T, U>(obj1: T, obj2: U): T & U {
+  return { ...obj1, ...obj2 };
+}
+
+let merged = merge({ name: "John" }, { age: 30 });
+
+GENERICS
+
+Generic Constraints:
+// Constraint with extends
+interface Lengthwise {
+  length: number;
+}
+
+function logLength<T extends Lengthwise>(arg: T): T {
+  console.log(arg.length);
+  return arg;
+}
+
+logLength("hello");      // OK
+logLength([1, 2, 3]);    // OK
+logLength({ length: 10, value: 3 }); // OK
+// logLength(123);       // Error: number doesn't have length
+
+// Using type parameters in generic constraints
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+// Constraint with conditional types
+type NonNullable<T> = T extends null | undefined ? never : T;
+
+Generic Utility Types:
+// Partial - makes all properties optional
+type PartialUser = Partial<User>;
+// { id?: number; name?: string; email?: string; isActive?: boolean; }
+
+// Required - makes all properties required
+type RequiredConfig = Required<Config>;
+
+// Pick - selects specific properties
+type UserNameEmail = Pick<User, "name" | "email">;
+
+// Omit - excludes specific properties
+type UserWithoutId = Omit<User, "id">;
+
+// Record - creates object type with specific keys and values
+type StatusRecord = Record<"pending" | "approved" | "rejected", boolean>;
+
+// Exclude - excludes types from union
+type NonStringTypes = Exclude<string | number | boolean, string>; // number | boolean
+
+// Extract - extracts types from union
+type StringTypes = Extract<string | number | boolean, string>; // string
+
+// ReturnType - gets return type of function
+type AddReturnType = ReturnType<typeof add>; // number
+
+// Parameters - gets parameter types of function
+type AddParameters = Parameters<typeof add>; // [number, number]
+
+Custom Generic Utilities:
+// Deep readonly
+type DeepReadonly<T> = {
+  readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+};
+
+// Nullable
+type Nullable<T> = T | null;
+
+// Optional by keys
+type OptionalByKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+MODULES AND NAMESPACES
+
+ES6 Modules:
+// math.ts
+export function add(a: number, b: number): number {
+  return a + b;
+}
+
+export function subtract(a: number, b: number): number {
+  return a - b;
+}
+
+export const PI = 3.14159;
+
+export default class Calculator {
+  add = add;
+  subtract = subtract;
+}
+
+// main.ts
+import Calculator, { add, subtract, PI } from './math';
+import * as MathUtils from './math';
+
+const calc = new Calculator();
+console.log(add(5, 3));
+console.log(MathUtils.PI);
+
+// Type-only imports/exports
+export type { User } from './types';
+import type { Config } from './config';
+
+Namespaces:
+namespace Geometry {
+  export interface Point {
+    x: number;
+    y: number;
+  }
+
+  export namespace Circle {
+    export function area(radius: number): number {
+      return Math.PI * radius * radius;
+    }
+
+    export function circumference(radius: number): number {
+      return 2 * Math.PI * radius;
+    }
+  }
+
+  export namespace Rectangle {
+    export function area(width: number, height: number): number {
+      return width * height;
+    }
+
+    export function perimeter(width: number, height: number): number {
+      return 2 * (width + height);
+    }
+  }
+}
+
+// Usage
+let point: Geometry.Point = { x: 10, y: 20 };
+let circleArea = Geometry.Circle.area(5);
+
+Ambient Declarations:
+// types.d.ts
+declare global {
+  interface Window {
+    myLibrary: {
+      doSomething(): void;
+    };
+  }
+}
+
+declare module "my-library" {
+  export function helper(): string;
+  export const version: string;
+}
+
+// For libraries without types
+declare module "*.json" {
+  const value: any;
+  export default value;
+}
+
+declare module "*.css" {
+  const classes: { [key: string]: string };
+  export default classes;
+}
+
+TYPE MANIPULATION
+
+keyof Operator:
+interface Person {
+  name: string;
+  age: number;
+  email: string;
+}
+
+type PersonKeys = keyof Person; // "name" | "age" | "email"
+
+function getPersonProperty(person: Person, key: keyof Person) {
+  return person[key];
+}
+
+typeof Operator:
+const colors = {
+  red: "#FF0000",
+  green: "#00FF00",
+  blue: "#0000FF"
+} as const;
+
+type Colors = typeof colors; // { red: "#FF0000"; green: "#00FF00"; blue: "#0000FF"; }
+type ColorKeys = keyof typeof colors; // "red" | "green" | "blue"
+
+// typeof with functions
+function multiply(a: number, b: number): number {
+  return a * b;
+}
+
+type MultiplyType = typeof multiply; // (a: number, b: number) => number
+
+Indexed Access Types:
+type PersonName = Person["name"]; // string
+type PersonAge = Person["age"];   // number
+
+// With union
+type PersonNameOrAge = Person["name" | "age"]; // string | number
+
+// With arrays
+type StringArray = string[];
+type StringArrayElement = StringArray[number]; // string
+
+// With tuples
+type Tuple = [string, number, boolean];
+type TupleFirst = Tuple[0]; // string
+type TupleSecond = Tuple[1]; // number
+
+Template Literal Types:
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type ApiVersion = "v1" | "v2";
+
+type ApiEndpoint = `/${ApiVersion}/${string}`;
+type HttpRequest = `${HttpMethod} ${ApiEndpoint}`;
+
+// Example usage
+type ValidRequest1 = "GET /v1/users"; // Valid
+type ValidRequest2 = "POST /v2/products"; // Valid
+
+// Pattern matching
+type ExtractRouteParams<T extends string> =
+  T extends `${string}/:${infer Param}/${infer Rest}`
+    ? Param | ExtractRouteParams<`/${Rest}`>
+    : T extends `${string}/:${infer Param}`
+    ? Param
+    : never;
+
+type RouteParams = ExtractRouteParams<"/users/:id/posts/:postId">; // "id" | "postId"
+
+DECORATORS
+
+Class Decorators:
+function Entity(table: string) {
+  return function <T extends { new (...args: any[]): {} }>(constructor: T) {
+    return class extends constructor {
+      tableName = table;
+    };
+  };
+}
+
+@Entity("users")
+class User {
+  constructor(public name: string, public email: string) {}
+}
+
+Method Decorators:
+function Log(target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  const method = descriptor.value;
+
+  descriptor.value = function (...args: any[]) {
+    console.log(`Calling ${propertyName} with arguments:`, args);
+    const result = method.apply(this, args);
+    console.log(`${propertyName} returned:`, result);
+    return result;
+  };
+}
+
+class Calculator {
+  @Log
+  add(a: number, b: number): number {
+    return a + b;
+  }
+}
+
+Property Decorators:
+function Required(target: any, propertyName: string) {
+  // Store metadata about required fields
+  if (!target.constructor._requiredFields) {
+    target.constructor._requiredFields = [];
+  }
+  target.constructor._requiredFields.push(propertyName);
+}
+
+class CreateUserDto {
+  @Required
+  name: string;
+
+  @Required
+  email: string;
+
+  age?: number;
+}
+
+Parameter Decorators:
+function Inject(token: string) {
+  return function (target: any, propertyKey: string | symbol | undefined, parameterIndex: number) {
+    // Register dependency injection metadata
+    console.log(`Injecting ${token} at parameter ${parameterIndex}`);
+  };
+}
+
+class UserService {
+  constructor(
+    @Inject("database") private db: any,
+    @Inject("logger") private logger: any
+  ) {}
+}
+
+DECLARATION FILES
+
+Creating Type Definitions:
+// api.d.ts
+declare namespace API {
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+  }
+
+  interface Response<T> {
+    data: T;
+    status: number;
+    message: string;
+  }
+
+  function fetchUser(id: number): Promise<Response<User>>;
+  function createUser(userData: Omit<User, 'id'>): Promise<Response<User>>;
+}
+
+// Global augmentation
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NODE_ENV: 'development' | 'production' | 'test';
+      DATABASE_URL: string;
+      JWT_SECRET: string;
+    }
+  }
+
+  interface Array<T> {
+    includes(searchElement: T, fromIndex?: number): boolean;
+  }
+}
+
+// Module augmentation
+declare module "express" {
+  interface Request {
+    user?: {
+      id: number;
+      email: string;
+    };
+  }
+}
+
+Publishing Types:
+// package.json
+{
+  "name": "my-library",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ]
+}
+
+// index.ts
+export interface LibraryConfig {
+  apiKey: string;
+  baseUrl: string;
+}
+
+export class MyLibrary {
+  constructor(config: LibraryConfig) {}
+
+  async fetchData(): Promise<any> {
+    // Implementation
+  }
+}
+
+export default MyLibrary;
+
+COMPILER OPTIONS
+
+Strict Mode Options:
+{
+  "compilerOptions": {
+    "strict": true,                           // Enable all strict checks
+    "noImplicitAny": true,                   // Error on expressions with 'any' type
+    "strictNullChecks": true,                // Strict null checking
+    "strictFunctionTypes": true,             // Strict function type checking
+    "strictBindCallApply": true,             // Strict 'bind', 'call', and 'apply'
+    "strictPropertyInitialization": true,    // Strict class property initialization
+    "noImplicitReturns": true,              // Error when not all code paths return
+    "noImplicitThis": true,                 // Error on 'this' with implied 'any'
+    "noUnusedLocals": true,                 // Error on unused local variables
+    "noUnusedParameters": true,             // Error on unused parameters
+    "exactOptionalPropertyTypes": true       // Exact optional property types
+  }
+}
+
+Module Resolution:
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@components/*": ["components/*"],
+      "@utils/*": ["utils/*"]
+    },
+    "typeRoots": ["node_modules/@types", "src/types"],
+    "types": ["node", "jest", "express"]
+  }
+}
+
+Output Options:
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "outFile": "./dist/bundle.js",
+    "rootDir": "./src",
+    "removeComments": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": false
+  }
+}
+
+TESTING WITH TYPESCRIPT
+
+Jest Configuration:
+// jest.config.js
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+  ],
+};
+
+Test Types:
+// types/test.d.ts
+declare global {
+  namespace jest {
+    interface Matchers<R> {
+      toBeValidEmail(): R;
+    }
+  }
+}
+
+// test-utils.ts
+export function createMockUser(overrides: Partial<User> = {}): User {
+  return {
+    id: 1,
+    name: "Test User",
+    email: "test@example.com",
+    isActive: true,
+    ...overrides
+  };
+}
+
+// user.test.ts
+import { User } from '../types';
+import { createMockUser } from '../test-utils';
+
+describe('User', () => {
+  test('should create user with default values', () => {
+    const user = createMockUser();
+    expect(user.name).toBe("Test User");
+    expect(user.isActive).toBe(true);
+  });
+
+  test('should override default values', () => {
+    const user = createMockUser({ name: "John Doe", age: 30 });
+    expect(user.name).toBe("John Doe");
+    expect(user.age).toBe(30);
+  });
+});
+
+BEST PRACTICES
+
+Type Safety:
+// Use strict mode
+{
+  "compilerOptions": {
+    "strict": true
+  }
+}
+
+// Prefer interfaces over types for object shapes
+interface User {
+  id: number;
+  name: string;
+}
+
+// Use types for unions, primitives, and computed types
+type Status = "pending" | "approved" | "rejected";
+type UserKeys = keyof User;
+
+// Use const assertions for literal types
+const directions = ["north", "south", "east", "west"] as const;
+type Direction = typeof directions[number];
+
+// Use type guards for runtime type checking
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isUser(obj: unknown): obj is User {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    typeof (obj as User).id === "number" &&
+    typeof (obj as User).name === "string"
+  );
+}
+
+Generic Constraints:
+// Use meaningful constraint names
+interface Serializable {
+  serialize(): string;
+}
+
+function saveToStorage<T extends Serializable>(item: T): void {
+  localStorage.setItem("data", item.serialize());
+}
+
+// Use multiple constraints when needed
+interface Identifiable {
+  id: string | number;
+}
+
+interface Timestamped {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function updateEntity<T extends Identifiable & Timestamped>(
+  entity: T,
+  updates: Partial<Omit<T, "id" | "createdAt">>
+): T {
+  return {
+    ...entity,
+    ...updates,
+    updatedAt: new Date()
+  };
+}
+
+Error Handling:
+// Use discriminated unions for error handling
+type Result<T, E> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+async function fetchUser(id: number): Promise<Result<User, string>> {
+  try {
+    const user = await api.getUser(id);
+    return { success: true, data: user };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Use the result
+const result = await fetchUser(1);
+if (result.success) {
+  console.log(result.data.name); // Type-safe access
+} else {
+  console.error(result.error);
+}
+
+Code Organization:
+// Barrel exports
+// types/index.ts
+export type { User } from './user';
+export type { Product } from './product';
+export type { Order } from './order';
+
+// utils/index.ts
+export { validateEmail } from './validation';
+export { formatDate } from './formatting';
+export { apiClient } from './api';
+
+// Feature-based organization
+src/
+├── types/
+│   ├── user.ts
+│   ├── product.ts
+│   └── index.ts
+├── utils/
+│   ├── validation.ts
+│   ├── api.ts
+│   └── index.ts
+├── features/
+│   ├── users/
+│   │   ├── types.ts
+│   │   ├── service.ts
+│   │   └── index.ts
+│   └── products/
+├── shared/
+└── main.ts
+
+Performance:
+// Use project references for large codebases
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true
+  },
+  "references": [
+    { "path": "../shared" },
+    { "path": "../utils" }
+  ]
+}
+
+// Use incremental compilation
+{
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo"
+  }
+}
+
+// Optimize imports
+import type { User } from './types'; // Type-only import
+import { validateEmail } from './utils'; // Value import
+
+Documentation:
+/**
+ * Represents a user in the system
+ * @example
+ * ```typescript
+ * const user: User = {
+ *   id: 1,
+ *   name: "John Doe",
+ *   email: "john@example.com",
+ *   isActive: true
+ * };
+ * ```
+ */
+interface User {
+  /** Unique identifier for the user */
+  id: number;
+  /** Full name of the user */
+  name: string;
+  /** Email address (must be valid) */
+  email: string;
+  /** Whether the user account is active */
+  isActive: boolean;
+}
+
+/**
+ * Creates a new user with validation
+ * @param userData - The user data to create
+ * @returns Promise that resolves to the created user
+ * @throws {ValidationError} When user data is invalid
+ */
+async function createUser(userData: CreateUserDto): Promise<User> {
+  // Implementation
+}
