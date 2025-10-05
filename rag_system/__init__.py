@@ -1,12 +1,8 @@
 """
-RAG System - High-Performance Retrieval Augmented Generation
+RAG System - Retrieval Augmented Generation System
 A professional-grade RAG system with optimized performance and scalability.
-
-Version: 2.0.0
-Author: RAG System Team
+Author: Shashank Singh
 """
-
-__version__ = "2.0.0"
-__author__ = "RAG System Team"
+__author__ = "Shashank Singh"
 
 from .core import *
