@@ -1,6 +1,8 @@
 """
-Metrics and Observability for DocuMentor
-Prometheus integration - super helpful for debugging production issues
+Prometheus metrics integration for monitoring the app.
+Helps track API usage, LLM costs, performance, etc.
+
+This has been super useful for debugging production issues.
 """
 
 import time
@@ -22,7 +24,7 @@ logger = get_logger(__name__)
 # API Metrics
 # ============================================
 
-# Request counters - tracks everything hitting the API
+# Track all incoming API requests
 api_requests_total = Counter(
     'requests_total',
     'Total API requests',
@@ -31,16 +33,17 @@ api_requests_total = Counter(
     subsystem=METRICS_SUBSYSTEM_API
 )
 
+# Request latency - using custom buckets that work well for our use case
 api_request_duration = Histogram(
     'request_duration_seconds',
     'API request duration',
     ['endpoint', 'method'],
-    buckets=LATENCY_BUCKETS,  # nice buckets for latency tracking
+    buckets=LATENCY_BUCKETS,
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_API
 )
 
-# Authentication metrics
+# Auth metrics - track success/failures
 auth_attempts_total = Counter(
     'auth_attempts_total',
     'Authentication attempts',
@@ -49,7 +52,7 @@ auth_attempts_total = Counter(
     subsystem=METRICS_SUBSYSTEM_API
 )
 
-# Rate limiting metrics
+# Rate limiting hits
 rate_limit_hits = Counter(
     'rate_limit_hits',
     'Rate limit exceeded count',
@@ -62,7 +65,7 @@ rate_limit_hits = Counter(
 # RAG System Metrics
 # ============================================
 
-# Vector store metrics - these are really useful for perf tuning
+# Vector store search tracking - useful for performance tuning
 vector_store_searches = Counter(
     'vector_store_searches_total',
     'Total vector store searches',
@@ -78,14 +81,15 @@ vector_store_search_duration = Histogram(
     subsystem=METRICS_SUBSYSTEM_RAG
 )
 
+# Keep track of how many docs we have
 vector_store_documents = Gauge(
     'vector_store_documents',
-    'Number of documents in vector store',  # updates in real-time
+    'Number of documents in vector store',
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_RAG
 )
 
-# Document processing metrics
+# Document processing counters
 documents_processed = Counter(
     'documents_processed_total',
     'Total documents processed',
@@ -103,7 +107,7 @@ document_processing_duration = Histogram(
     subsystem=METRICS_SUBSYSTEM_RAG
 )
 
-# Chunking metrics
+# Chunk creation counter
 chunks_created = Counter(
     'chunks_created_total',
     'Total chunks created',
@@ -115,7 +119,7 @@ chunks_created = Counter(
 # LLM Metrics
 # ============================================
 
-# LLM requests - important for cost tracking!
+# Track LLM API calls - this is important for monitoring costs
 llm_requests = Counter(
     'requests_total',
     'Total LLM requests',
@@ -133,11 +137,11 @@ llm_request_duration = Histogram(
     subsystem=METRICS_SUBSYSTEM_LLM
 )
 
-# This one's crucial - tokens = $$$
+# TOKEN USAGE - This is the big one since tokens = money
 llm_tokens_used = Counter(
     'tokens_used_total',
     'Total LLM tokens used',
-    ['provider', 'token_type'],  # token_type: prompt, completion
+    ['provider', 'token_type'],  # token_type: prompt or completion
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_LLM
 )
@@ -149,7 +153,7 @@ llm_tokens_used = Counter(
 cache_hits = Counter(
     'cache_hits_total',
     'Cache hits',
-    ['cache_type'],  # response, embedding
+    ['cache_type'],  # response or embedding
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_RAG
 )
@@ -171,21 +175,16 @@ cache_size = Gauge(
 )
 
 # ============================================
-# Utility Functions
+# Helper Functions
 # ============================================
 
 @contextmanager
 def track_request_duration(endpoint: str, method: str):
     """
-    Context manager to track request duration
-
-    Args:
-        endpoint: API endpoint
-        method: HTTP method
-
-    Example:
+    Track how long API requests take.
+    Usage:
         with track_request_duration('/api/search', 'POST'):
-            # ... process request ...
+            # do stuff
     """
     start_time = time.time()
     try:
@@ -198,14 +197,8 @@ def track_request_duration(endpoint: str, method: str):
 @contextmanager
 def track_llm_request(provider: str):
     """
-    Context manager to track LLM request
-
-    Args:
-        provider: LLM provider name (ollama, openai, gemini)
-
-    Example:
-        with track_llm_request('ollama'):
-            # ... call LLM ...
+    Track LLM requests - duration and success/failure.
+    Provider can be 'ollama', 'openai', 'gemini', etc.
     """
     start_time = time.time()
     status = 'success'
@@ -213,7 +206,7 @@ def track_llm_request(provider: str):
         yield
     except Exception as e:
         status = 'error'
-        logger.error(f"LLM request failed: {e}")
+        logger.error(f"LLM call failed: {e}")
         raise
     finally:
         duration = time.time() - start_time
@@ -224,11 +217,8 @@ def track_llm_request(provider: str):
 @contextmanager
 def track_vector_search():
     """
-    Context manager to track vector store search
-
-    Example:
-        with track_vector_search():
-            # ... perform search ...
+    Track vector store search performance.
+    Just wrap your search call with this.
     """
     start_time = time.time()
     try:
@@ -240,14 +230,7 @@ def track_vector_search():
 
 
 def record_api_request(endpoint: str, method: str, status_code: int):
-    """
-    Record API request
-
-    Args:
-        endpoint: API endpoint
-        method: HTTP method
-        status_code: HTTP status code
-    """
+    """Log an API request to metrics"""
     api_requests_total.labels(
         endpoint=endpoint,
         method=method,
@@ -256,76 +239,40 @@ def record_api_request(endpoint: str, method: str, status_code: int):
 
 
 def record_auth_attempt(result: str):
-    """
-    Record authentication attempt
-
-    Args:
-        result: Authentication result (success, failure, missing)
-    """
+    """Record auth attempt (result can be 'success', 'failure', or 'missing')"""
     auth_attempts_total.labels(result=result).inc()
 
 
 def record_rate_limit_hit(endpoint: str):
-    """
-    Record rate limit hit
-
-    Args:
-        endpoint: API endpoint
-    """
+    """Record when someone hits the rate limit"""
     rate_limit_hits.labels(endpoint=endpoint).inc()
-    logger.warning(f"Rate limit exceeded for endpoint: {endpoint}")
+    logger.warning(f"Rate limit hit on {endpoint}")
 
 
 def record_cache_hit(cache_type: str):
-    """
-    Record cache hit
-
-    Args:
-        cache_type: Type of cache (response, embedding)
-    """
+    """Track cache hit (cache_type: 'response' or 'embedding')"""
     cache_hits.labels(cache_type=cache_type).inc()
 
 
 def record_cache_miss(cache_type: str):
-    """
-    Record cache miss
-
-    Args:
-        cache_type: Type of cache (response, embedding)
-    """
+    """Track cache miss (cache_type: 'response' or 'embedding')"""
     cache_misses.labels(cache_type=cache_type).inc()
 
 
 def update_cache_size(cache_type: str, size: int):
-    """
-    Update cache size gauge
-
-    Args:
-        cache_type: Type of cache (response, embedding)
-        size: Current cache size
-    """
+    """Update the current size of a cache"""
     cache_size.labels(cache_type=cache_type).set(size)
 
 
 def record_document_processed(file_type: str, status: str):
-    """
-    Record document processing
-
-    Args:
-        file_type: File extension/type
-        status: Processing status (success, error)
-    """
+    """Record a processed document (status: 'success' or 'error')"""
     documents_processed.labels(file_type=file_type, status=status).inc()
 
 
 def record_llm_tokens(provider: str, prompt_tokens: int, completion_tokens: int):
     """
-    Record LLM token usage
-
-    Args:
-        provider: LLM provider
-        prompt_tokens: Number of prompt tokens
-        completion_tokens: Number of completion tokens
+    Record token usage - IMPORTANT for cost tracking!
+    Provider: ollama, openai, gemini, etc.
     """
     llm_tokens_used.labels(provider=provider, token_type='prompt').inc(prompt_tokens)
     llm_tokens_used.labels(provider=provider, token_type='completion').inc(completion_tokens)

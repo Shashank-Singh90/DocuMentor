@@ -1,13 +1,13 @@
 """
-Enhanced FastAPI REST API v2 for Advanced RAG System
-Provides programmatic access to all enhanced RAG functionality
+FastAPI server for the DocuMentor RAG system.
+Provides REST API access to all the core RAG functionality.
 
-Production-ready with:
-- API Key Authentication
-- Rate Limiting
-- Input Validation
-- Metrics & Monitoring
-- Structured Logging
+Includes production features:
+- API key authentication
+- Rate limiting
+- Input validation
+- Prometheus metrics
+- Structured logging
 """
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Request, Response
@@ -59,7 +59,7 @@ from rag_system.core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Technology mapping for enhanced filtering
+# Tech stack mapping for filtering queries by technology
 TECHNOLOGY_MAPPING = {
     'python': 'Python 3.13.5',
     'fastapi': 'FastAPI',
@@ -122,45 +122,44 @@ class TechnologyStatsResponse(BaseModel):
     topics_covered: List[str]
 
 def create_enhanced_fastapi_app() -> FastAPI:
-    """Create and configure enhanced FastAPI application v2 with production features"""
+    """Set up and configure the FastAPI app with all the production features"""
 
-    # Initialize components
     settings = get_settings()
 
     app = FastAPI(
         title="DocuMentor API",
-        description="Production-Ready AI Documentation Assistant API with Authentication, Rate Limiting, and Monitoring",
+        description="AI-powered documentation assistant with RAG capabilities",
         version="2.0.0",
         docs_url="/docs",
         redoc_url="/redoc"
     )
 
-    # Initialize rate limiter
+    # Set up rate limiting
     limiter = Limiter(key_func=get_remote_address)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Configure CORS with secure defaults
+    # CORS config - origins come from env vars
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,  # Configured via environment variables
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
 
-    # Initialize core components
+    # Initialize the core RAG components
     vector_store = VectorStore()
     chunker = SmartChunker()
 
-    logger.info("FastAPI application initialized with production features")
-    logger.info(f"Authentication: {'Enabled' if settings.api_key else 'Disabled'}")
+    logger.info("FastAPI app initialized")
+    logger.info(f"Auth: {'Enabled' if settings.api_key else 'Disabled'}")
     logger.info(f"Rate limiting: Enabled")
-    logger.info(f"Metrics: Enabled at /metrics")
+    logger.info(f"Metrics endpoint: /metrics")
 
     @app.get("/", tags=["General"])
     async def root():
-        """Enhanced API root endpoint"""
+        """Root endpoint - basic info about the API"""
         return {
             "message": "DocuMentor API - AI Documentation Assistant",
             "version": "2.0.0",
@@ -178,7 +177,7 @@ def create_enhanced_fastapi_app() -> FastAPI:
 
     @app.get("/status", response_model=EnhancedSystemStatus, tags=["General"])
     async def get_enhanced_status():
-        """Get enhanced system status and capabilities"""
+        """Get system status and available capabilities"""
         try:
             stats = vector_store.get_collection_stats()
             provider_status = enhanced_llm_handler.get_provider_status()
@@ -202,8 +201,8 @@ def create_enhanced_fastapi_app() -> FastAPI:
     @app.get("/metrics", tags=["Monitoring"])
     async def get_metrics():
         """
-        Prometheus-compatible metrics endpoint
-        Tracks API requests, LLM usage, cache performance, and more
+        Prometheus metrics endpoint.
+        Returns API stats, LLM usage, cache hit rates, etc.
         """
         metrics_output = generate_latest()
         return Response(content=metrics_output, media_type=CONTENT_TYPE_LATEST)
@@ -216,7 +215,7 @@ def create_enhanced_fastapi_app() -> FastAPI:
             technologies = []
 
             for tech_key, tech_name in TECHNOLOGY_MAPPING.items():
-                # Get technology-specific chunks
+                # Try to get some chunks for this technology
                 try:
                     tech_filter = {"technology": tech_key}
                     tech_results = vector_store.search("overview", k=3, filter_dict=tech_filter)
@@ -228,8 +227,8 @@ def create_enhanced_fastapi_app() -> FastAPI:
                         "sample_topics": [r.get('content', '')[:100] + "..." for r in tech_results[:2]]
                     })
                 except Exception as e:
-                    # Log the error but continue processing other technologies
-                    print(f"Warning: Failed to check technology {tech_name}: {e}")
+                    # If it fails, just mark as unavailable and keep going
+                    print(f"Warning: couldn't check {tech_name}: {e}")
                     technologies.append({
                         "key": tech_key,
                         "name": tech_name,
