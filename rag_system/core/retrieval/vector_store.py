@@ -26,7 +26,7 @@ class ChromaVectorStore:
         self.persist_directory = settings.chroma_persist_directory
         self.collection_name = settings.collection_name
 
-        # Set up proper file locking to prevent race conditions
+        # Set up file locking - learned this the hard way after dealing with corruption issues
         lock_dir = Path(self.persist_directory).parent / "locks"
         lock_dir.mkdir(parents=True, exist_ok=True)
         self.lock_file_path = lock_dir / f"{self.collection_name}.lock"
@@ -38,11 +38,11 @@ class ChromaVectorStore:
         with self.lock:
             logger.debug("Acquired lock for ChromaDB initialization")
             self.client = chromadb.PersistentClient(path=self.persist_directory)
-        
+
         # Get optimized embedding function with caching
         try:
             base_embedding = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"  # Fast, high-quality embeddings
+                model_name="all-MiniLM-L6-v2"  # this model is pretty good and fast
             )
             self.embedding_function = CachedEmbeddingFunction(
                 base_embedding,

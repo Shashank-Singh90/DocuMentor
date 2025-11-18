@@ -1,6 +1,7 @@
 """
 Response Caching System for DocuMentor
-Caches LLM responses to improve performance
+Caches LLM responses - saves a lot of API calls (and money!)
+Switched from pickle to JSON for security reasons
 """
 import hashlib
 import json
@@ -12,7 +13,7 @@ from rag_system.core.utils.logger import get_logger
 logger = get_logger(__name__)
 
 class ResponseCache:
-    """Cache for LLM responses to improve performance"""
+    """Simple cache for LLM responses - makes repeated queries super fast"""
 
     def __init__(self, cache_dir: str = "./data/cache", max_cache_size: int = 1000):
         self.cache_dir = Path(cache_dir)
@@ -28,7 +29,7 @@ class ResponseCache:
         logger.info(f"Response cache initialized with {len(self.cache)} entries")
 
     def _load_cache(self) -> Dict:
-        """Load cache from disk using secure JSON format"""
+        """Load cache from disk - using JSON now instead of pickle"""
         try:
             if self.cache_file.exists():
                 with open(self.cache_file, 'r', encoding='utf-8') as f:

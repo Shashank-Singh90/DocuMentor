@@ -1,6 +1,6 @@
 """
 Metrics and Observability for DocuMentor
-Tracks performance, usage, and system health metrics
+Prometheus integration - super helpful for debugging production issues
 """
 
 import time
@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 # API Metrics
 # ============================================
 
-# Request counters
+# Request counters - tracks everything hitting the API
 api_requests_total = Counter(
     'requests_total',
     'Total API requests',
@@ -35,7 +35,7 @@ api_request_duration = Histogram(
     'request_duration_seconds',
     'API request duration',
     ['endpoint', 'method'],
-    buckets=LATENCY_BUCKETS,
+    buckets=LATENCY_BUCKETS,  # nice buckets for latency tracking
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_API
 )
@@ -62,7 +62,7 @@ rate_limit_hits = Counter(
 # RAG System Metrics
 # ============================================
 
-# Vector store metrics
+# Vector store metrics - these are really useful for perf tuning
 vector_store_searches = Counter(
     'vector_store_searches_total',
     'Total vector store searches',
@@ -80,7 +80,7 @@ vector_store_search_duration = Histogram(
 
 vector_store_documents = Gauge(
     'vector_store_documents',
-    'Number of documents in vector store',
+    'Number of documents in vector store',  # updates in real-time
     namespace=METRICS_NAMESPACE,
     subsystem=METRICS_SUBSYSTEM_RAG
 )
@@ -115,7 +115,7 @@ chunks_created = Counter(
 # LLM Metrics
 # ============================================
 
-# LLM requests
+# LLM requests - important for cost tracking!
 llm_requests = Counter(
     'requests_total',
     'Total LLM requests',
@@ -133,6 +133,7 @@ llm_request_duration = Histogram(
     subsystem=METRICS_SUBSYSTEM_LLM
 )
 
+# This one's crucial - tokens = $$$
 llm_tokens_used = Counter(
     'tokens_used_total',
     'Total LLM tokens used',

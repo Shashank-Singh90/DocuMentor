@@ -1,11 +1,12 @@
 """
 Input Validation for DocuMentor API
 Validates file uploads, query parameters, and request data
+Using python-magic for MIME type detection instead of just checking extensions
 """
 
 from fastapi import UploadFile, HTTPException, status
 from typing import List, Optional
-import magic
+import magic  # python-magic for content-based file type detection
 from pathlib import Path
 from rag_system.core.constants import (
     MAX_FILE_SIZE_BYTES,
@@ -22,6 +23,7 @@ from rag_system.core.utils.logger import get_logger
 logger = get_logger(__name__)
 
 # MIME type mapping for supported file types
+# These Office MIME types are ridiculously long, but what can you do
 ALLOWED_MIME_TYPES = {
     # Text files
     'text/plain': ['.txt'],
@@ -30,7 +32,7 @@ ALLOWED_MIME_TYPES = {
     # PDF
     'application/pdf': ['.pdf'],
 
-    # Microsoft Office
+    # Microsoft Office - yeah these are long
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'application/msword': ['.doc'],
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
@@ -38,7 +40,7 @@ ALLOWED_MIME_TYPES = {
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
     'application/vnd.ms-powerpoint': ['.ppt'],
 
-    # CSV
+    # CSV - some systems return different MIME types for CSV
     'text/csv': ['.csv'],
     'application/csv': ['.csv'],
 }
@@ -47,15 +49,7 @@ ALLOWED_MIME_TYPES = {
 def validate_query(query: str) -> str:
     """
     Validate search query
-
-    Args:
-        query: Search query string
-
-    Returns:
-        Sanitized query string
-
-    Raises:
-        HTTPException: If query is invalid
+    Basic sanitation to prevent weird edge cases
     """
     if not query or len(query.strip()) < MIN_QUERY_LENGTH:
         logger.warning(f"Query validation failed: too short (length: {len(query)})")
@@ -65,6 +59,7 @@ def validate_query(query: str) -> str:
         )
 
     if len(query) > MAX_QUERY_LENGTH:
+        # someone's trying to paste a whole book in here
         logger.warning(f"Query validation failed: too long (length: {len(query)})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -72,6 +67,7 @@ def validate_query(query: str) -> str:
         )
 
     # Sanitize query (remove control characters, normalize whitespace)
+    # join() with split() is a neat trick to normalize whitespace
     sanitized = ' '.join(query.strip().split())
 
     logger.debug(f"Query validated: '{sanitized[:50]}...'")

@@ -1,24 +1,25 @@
 """
 Constants for the RAG System
-Centralizes all magic numbers and configuration constants
+Moved all the magic numbers here - was getting annoying to track them down everywhere
 """
 
 # ============================================
 # Vector Store Constants
 # ============================================
-DEFAULT_SEARCH_K = 8
+DEFAULT_SEARCH_K = 8  # seems to work well for most queries
 MAX_SEARCH_K = 100
 MIN_SEARCH_K = 1
 
 # Batch sizes for vector operations
+# TODO: might need to tune these based on actual usage
 SMALL_BATCH_SIZE = 100
 MEDIUM_BATCH_SIZE = 500
 LARGE_BATCH_SIZE = 2000
 XLARGE_BATCH_SIZE = 5000
 
-# ChromaDB limits
+# ChromaDB limits - found these through trial and error
 CHROMADB_DOCUMENT_LIMIT = 10000
-CHROMADB_RETRY_ATTEMPTS = 3
+CHROMADB_RETRY_ATTEMPTS = 3  # usually succeeds on 2nd try
 CHROMADB_RETRY_DELAY = 1.0  # seconds
 
 # Sample limits for statistics
@@ -27,16 +28,16 @@ STATS_SAMPLE_LIMIT = 1000
 # ============================================
 # LLM & Generation Constants
 # ============================================
-DEFAULT_TEMPERATURE = 0.3
+DEFAULT_TEMPERATURE = 0.3  # 0.7 was too creative, 0.1 too boring
 MIN_TEMPERATURE = 0.0
 MAX_TEMPERATURE = 1.0
 
-DEFAULT_MAX_TOKENS = 800
+DEFAULT_MAX_TOKENS = 800  # good balance between detail and speed
 MIN_MAX_TOKENS = 100
-MAX_MAX_TOKENS = 4000
+MAX_MAX_TOKENS = 4000  # probably shouldn't go higher than this
 
 # Context limits
-MAX_CONTEXT_RESULTS = 3
+MAX_CONTEXT_RESULTS = 3  # more than this and LLM gets confused
 CONTEXT_CONTENT_LENGTH = 800
 QUERY_PREVIEW_LENGTH = 50
 
@@ -86,15 +87,16 @@ ALL_SUPPORTED_EXTENSIONS = (
 # API & Network Constants
 # ============================================
 DEFAULT_API_TIMEOUT = 30  # seconds
-OLLAMA_TIMEOUT = 120  # seconds
+OLLAMA_TIMEOUT = 120  # ollama can be slow sometimes, give it time
 HEALTH_CHECK_TIMEOUT = 2  # seconds
-HEALTH_CHECK_MAX_RETRIES = 30
+HEALTH_CHECK_MAX_RETRIES = 30  # might be overkill but better safe than sorry
 
 # Rate limiting (requests per minute)
+# adjusted these after some testing
 RATE_LIMIT_SEARCH = 60
-RATE_LIMIT_UPLOAD = 10
+RATE_LIMIT_UPLOAD = 10  # uploads are expensive
 RATE_LIMIT_QUERY = 30
-RATE_LIMIT_GENERATION = 20
+RATE_LIMIT_GENERATION = 20  # LLM calls cost money!
 
 # ============================================
 # Web Search Constants

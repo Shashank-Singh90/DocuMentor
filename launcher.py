@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Enhanced Modern System Launcher
-Launches both FastAPI backend and Streamlit frontend with modern UI
+Launches both FastAPI backend and Streamlit frontend
+Pretty simple - just starts both servers and makes sure they're running
 """
 
 import subprocess
@@ -19,8 +20,8 @@ class ModernSystemLauncher:
     def __init__(self):
         self.fastapi_process = None
         self.streamlit_process = None
-        self.api_port = 8100
-        self.ui_port = 8506
+        self.api_port = 8100  # API backend
+        self.ui_port = 8506   # Streamlit frontend
 
     def check_port_available(self, port):
         """Check if a port is available"""
@@ -33,7 +34,7 @@ class ModernSystemLauncher:
                 return False
 
     def wait_for_api(self, timeout=30):
-        """Wait for FastAPI to be ready"""
+        """Wait for FastAPI to be ready - just keeps pinging until it responds"""
         print(f"⏳ Waiting for FastAPI on port {self.api_port}...")
 
         for i in range(timeout):
@@ -43,6 +44,7 @@ class ModernSystemLauncher:
                     print("✅ FastAPI is ready!")
                     return True
             except (requests.RequestException, ConnectionError, TimeoutError):
+                # API not ready yet, just keep trying
                 pass
 
             time.sleep(1)

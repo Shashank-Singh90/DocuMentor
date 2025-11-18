@@ -1,13 +1,13 @@
-# 📚 DocuMentor - Production-Ready RAG System
+# 📚 DocuMentor - AI-Powered Documentation Assistant
 
-> **AI-Powered Documentation Assistant with Enterprise-Grade Security, Observability, and Performance**
+> **RAG System with Multi-Provider AI Support, Smart Search, and Production Features**
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Production Ready](https://img.shields.io/badge/production-ready-brightgreen.svg)]()
 
-A modern, **production-ready RAG (Retrieval-Augmented Generation) system** featuring multi-provider AI support, smart search capabilities, comprehensive authentication, rate limiting, and full observability.
+A **RAG (Retrieval-Augmented Generation) system** with multi-provider AI support, smart documentation search, and production-ready features like authentication, rate limiting, and monitoring.
 
 ---
 
