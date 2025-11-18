@@ -1,13 +1,24 @@
 """
 Enhanced FastAPI REST API v2 for Advanced RAG System
 Provides programmatic access to all enhanced RAG functionality
+
+Production-ready with:
+- API Key Authentication
+- Rate Limiting
+- Input Validation
+- Metrics & Monitoring
+- Structured Logging
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import json
 import io
 import time
@@ -18,6 +29,35 @@ from rag_system.core.processing import document_processor
 from rag_system.core.generation.llm_handler import enhanced_llm_handler
 from rag_system.core.search import web_search_provider
 from rag_system.config import get_settings
+from rag_system.api.middleware.auth import verify_api_key, optional_verify_api_key
+from rag_system.api.middleware.validation import (
+    validate_query,
+    validate_search_k,
+    validate_temperature,
+    validate_max_tokens,
+    validate_file_upload,
+    sanitize_filename,
+)
+from rag_system.core.utils.metrics import (
+    track_request_duration,
+    track_llm_request,
+    track_vector_search,
+    record_api_request,
+    record_auth_attempt,
+    record_rate_limit_hit,
+    update_vector_store_size,
+)
+from rag_system.core.constants import (
+    RATE_LIMIT_SEARCH,
+    RATE_LIMIT_UPLOAD,
+    RATE_LIMIT_QUERY,
+    RATE_LIMIT_GENERATION,
+    DEFAULT_SEARCH_K,
+    MAX_SEARCH_K,
+)
+from rag_system.core.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Technology mapping for enhanced filtering
 TECHNOLOGY_MAPPING = {
@@ -82,18 +122,23 @@ class TechnologyStatsResponse(BaseModel):
     topics_covered: List[str]
 
 def create_enhanced_fastapi_app() -> FastAPI:
-    """Create and configure enhanced FastAPI application v2"""
+    """Create and configure enhanced FastAPI application v2 with production features"""
 
     # Initialize components
     settings = get_settings()
 
     app = FastAPI(
         title="DocuMentor API",
-        description="AI-Powered Documentation Assistant API with smart search, code generation, and technology-specific filtering",
+        description="Production-Ready AI Documentation Assistant API with Authentication, Rate Limiting, and Monitoring",
         version="2.0.0",
         docs_url="/docs",
         redoc_url="/redoc"
     )
+
+    # Initialize rate limiter
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # Configure CORS with secure defaults
     app.add_middleware(
@@ -103,8 +148,15 @@ def create_enhanced_fastapi_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
+
+    # Initialize core components
     vector_store = VectorStore()
     chunker = SmartChunker()
+
+    logger.info("FastAPI application initialized with production features")
+    logger.info(f"Authentication: {'Enabled' if settings.api_key else 'Disabled'}")
+    logger.info(f"Rate limiting: Enabled")
+    logger.info(f"Metrics: Enabled at /metrics")
 
     @app.get("/", tags=["General"])
     async def root():
@@ -131,6 +183,9 @@ def create_enhanced_fastapi_app() -> FastAPI:
             stats = vector_store.get_collection_stats()
             provider_status = enhanced_llm_handler.get_provider_status()
 
+            # Update metrics
+            update_vector_store_size(stats.get('total_chunks', 0))
+
             return EnhancedSystemStatus(
                 status="operational",
                 providers=provider_status,
@@ -141,7 +196,17 @@ def create_enhanced_fastapi_app() -> FastAPI:
                 system_version="2.0.0"
             )
         except Exception as e:
+            logger.error(f"Status check failed: {e}")
             raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+    @app.get("/metrics", tags=["Monitoring"])
+    async def get_metrics():
+        """
+        Prometheus-compatible metrics endpoint
+        Tracks API requests, LLM usage, cache performance, and more
+        """
+        metrics_output = generate_latest()
+        return Response(content=metrics_output, media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/technologies", tags=["Technologies"])
     async def list_technologies():
