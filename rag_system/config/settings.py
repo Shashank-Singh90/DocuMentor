@@ -86,10 +86,6 @@ class Settings(BaseSettings):
     log_max_size: int = Field(default=10 * 1024 * 1024, description="Max log file size")
     log_backup_count: int = Field(default=5, description="Log backup count")
 
-    # Security Configuration
-    api_key: Optional[str] = Field(default=None, description="API key for authentication")
-    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
-
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
