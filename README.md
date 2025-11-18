@@ -279,7 +279,6 @@ DocuMentor/
 │   └── uploads/                  # Uploaded documents
 ├── .env.example                  # Environment template
 ├── requirements.txt              # Python dependencies
-├── IMPROVEMENTS.md               # Production improvements doc
 └── README.md                     # This file
 ```
 
@@ -517,8 +516,8 @@ python launcher.py
 
 ## 📖 Documentation
 
-- **[IMPROVEMENTS.md](IMPROVEMENTS.md)**: Detailed production improvements documentation
 - **[API Documentation](http://localhost:8100/docs)**: Interactive Swagger UI (when running)
+- **[Architecture Guide](rag_system/docs/ARCHITECTURE.md)**: System architecture documentation
 - **[.env.example](.env.example)**: Configuration reference
 
 ---
