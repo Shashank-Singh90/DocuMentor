@@ -229,7 +229,7 @@ def create_enhanced_fastapi_app() -> FastAPI:
                     })
                 except Exception as e:
                     # Log the error but continue processing other technologies
-                    print(f"Warning: Failed to check technology {tech_name}: {e}")
+                    logger.warning(f"Failed to check technology {tech_name}: {e}")
                     technologies.append({
                         "key": tech_key,
                         "name": tech_name,
@@ -281,7 +281,8 @@ def create_enhanced_fastapi_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=f"Failed to get technology stats: {str(e)}")
 
     @app.post("/ask/enhanced", response_model=EnhancedQuestionResponse, tags=["Enhanced Q&A"])
-    async def ask_enhanced_question(request: EnhancedQuestionRequest):
+    @limiter.limit(f"{RATE_LIMIT_QUERY}/minute")
+    async def ask_enhanced_question(http_request: Request, request: EnhancedQuestionRequest):
         """Ask a question with enhanced features and filtering"""
         try:
             import time
@@ -366,7 +367,8 @@ def create_enhanced_fastapi_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=f"Enhanced question processing failed: {str(e)}")
 
     @app.post("/generate-code/enhanced", tags=["Enhanced Code Generation"])
-    async def generate_enhanced_code(request: EnhancedCodeGenerationRequest):
+    @limiter.limit(f"{RATE_LIMIT_GENERATION}/minute")
+    async def generate_enhanced_code(http_request: Request, request: EnhancedCodeGenerationRequest):
         """Generate code with enhanced technology context"""
         try:
             # Get enhanced context
@@ -408,7 +410,8 @@ def create_enhanced_fastapi_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=f"Enhanced code generation failed: {str(e)}")
 
     @app.post("/technology-query", tags=["Technology Queries"])
-    async def technology_specific_query(request: TechnologyFilterRequest):
+    @limiter.limit(f"{RATE_LIMIT_QUERY}/minute")
+    async def technology_specific_query(http_request: Request, request: TechnologyFilterRequest):
         """Query with technology-specific filtering and context"""
         try:
             if request.technology not in TECHNOLOGY_MAPPING:
@@ -463,12 +466,15 @@ def create_enhanced_fastapi_app() -> FastAPI:
 
     # Include all original endpoints for backward compatibility
     @app.post("/ask", response_model=EnhancedQuestionResponse, tags=["Q&A"])
-    async def ask_question_legacy(request: EnhancedQuestionRequest):
+    @limiter.limit(f"{RATE_LIMIT_QUERY}/minute")
+    async def ask_question_legacy(http_request: Request, request: EnhancedQuestionRequest):
         """Legacy ask endpoint - redirects to enhanced version"""
-        return await ask_enhanced_question(request)
+        return await ask_enhanced_question(http_request, request)
 
     @app.post("/upload", tags=["Documents"])
+    @limiter.limit(f"{RATE_LIMIT_UPLOAD}/minute")
     async def upload_document(
+        http_request: Request,
         file: UploadFile = File(...),
         source: str = Form(default="api_upload")
     ):

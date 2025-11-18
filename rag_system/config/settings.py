@@ -86,16 +86,43 @@ class Settings(BaseSettings):
     log_max_size: int = Field(default=10 * 1024 * 1024, description="Max log file size")
     log_backup_count: int = Field(default=5, description="Log backup count")
 
-    # Security Configuration
-    api_key: Optional[str] = Field(default=None, description="API key for authentication")
-    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
-
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
         "extra": "ignore"
     }
+
+    def validate_settings(self):
+        """Validate critical settings on startup"""
+        import warnings
+
+        # Warn if running in production without API key
+        if not self.debug and not self.api_key:
+            warnings.warn(
+                "Running in production mode (debug=False) without API key authentication. "
+                "Set API_KEY environment variable for security.",
+                UserWarning
+            )
+
+        # Validate API key length if set
+        if self.api_key and len(self.api_key) < 16:
+            raise ValueError(
+                f"API key must be at least 16 characters long. Current length: {len(self.api_key)}. "
+                "Generate a secure API key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+
+        # Warn about wildcard CORS in production
+        if not self.debug and "*" in self.cors_origins:
+            warnings.warn(
+                "CORS origins set to wildcard ['*'] in production mode. "
+                "This is a security risk. Set specific origins in CORS_ORIGINS environment variable.",
+                UserWarning
+            )
+
+        # Validate Ollama configuration if it's the default provider
+        if self.default_llm_provider == "ollama" and not self.ollama_host:
+            raise ValueError("Ollama host must be configured when using Ollama as the default LLM provider")
 
     def create_directories(self):
         """Create required directories"""
@@ -120,5 +147,6 @@ def get_settings() -> Settings:
     global _settings
     if _settings is None:
         _settings = Settings()
+        _settings.validate_settings()
         _settings.create_directories()
     return _settings
