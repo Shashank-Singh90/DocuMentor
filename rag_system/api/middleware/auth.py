@@ -1,7 +1,8 @@
 """
 Authentication Middleware for DocuMentor API
-Simple API key auth - good enough for now
-TODO: maybe add JWT tokens later if needed
+
+Implements API key-based authentication for securing API endpoints.
+Uses timing-safe comparison to prevent timing attacks.
 """
 
 import secrets
@@ -20,14 +21,22 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(api_key: Optional[str] = Security(api_key_header)) -> str:
     """
-    Verify API key from request header
-    Uses timing-safe comparison to prevent timing attacks
+    Verify API key from request header.
+    Uses timing-safe comparison to prevent timing attacks.
+
+    Returns:
+        The validated API key string
+
+    Raises:
+        HTTPException: If authentication fails
     """
-    # If no API key is configured in settings, allow all requests
-    # useful for local development
+    # Check if API key is configured in settings
     if not settings.api_key:
-        logger.debug("API key authentication disabled (no key configured)")
-        return "anonymous"
+        logger.error("API key authentication required but no key configured in settings")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="API authentication not properly configured",
+        )
 
     # Check if API key is provided
     if not api_key:
@@ -49,8 +58,7 @@ async def verify_api_key(api_key: Optional[str] = Security(api_key_header)) -> s
 
     # Verify API key using timing-safe comparison
     if not secrets.compare_digest(api_key, settings.api_key):
-        # only log first 8 chars for security
-        logger.warning(f"Request rejected: Invalid API key (provided: {api_key[:8]}...)")
+        logger.warning("Request rejected: Invalid API key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_INVALID_API_KEY,

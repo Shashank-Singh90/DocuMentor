@@ -1,7 +1,8 @@
 """
 Response Caching System for DocuMentor
-Caches LLM responses - saves a lot of API calls (and money!)
-Switched from pickle to JSON for security reasons
+
+Implements persistent caching for LLM responses to reduce API calls and improve response times.
+Uses JSON format for security and portability.
 """
 import hashlib
 import json
@@ -13,7 +14,11 @@ from rag_system.core.utils.logger import get_logger
 logger = get_logger(__name__)
 
 class ResponseCache:
-    """Simple cache for LLM responses - makes repeated queries super fast"""
+    """
+    In-memory cache for LLM responses with disk persistence.
+
+    Implements LRU eviction policy and stores cache entries as JSON.
+    """
 
     def __init__(self, cache_dir: str = "./data/cache", max_cache_size: int = 1000):
         self.cache_dir = Path(cache_dir)
@@ -29,7 +34,7 @@ class ResponseCache:
         logger.info(f"Response cache initialized with {len(self.cache)} entries")
 
     def _load_cache(self) -> Dict:
-        """Load cache from disk - using JSON now instead of pickle"""
+        """Load cache from disk using JSON format."""
         try:
             if self.cache_file.exists():
                 with open(self.cache_file, 'r', encoding='utf-8') as f:
@@ -61,7 +66,16 @@ class ResponseCache:
             logger.error(f"Failed to save cache: {e}")
 
     def _generate_cache_key(self, query: str, search_results: list) -> str:
-        """Generate cache key from query and search results"""
+        """
+        Generate cache key from query and search results using SHA256.
+
+        Args:
+            query: The search query string
+            search_results: List of search result dictionaries
+
+        Returns:
+            SHA256 hash of the normalized query and top search results
+        """
         # Normalize query
         normalized_query = query.lower().strip()
 
@@ -70,11 +84,11 @@ class ResponseCache:
         if search_results:
             # Use content of top 3 results for cache key
             top_content = [r.get('content', '')[:200] for r in search_results[:3]]
-            content_hash = hashlib.md5(''.join(top_content).encode()).hexdigest()[:8]
+            content_hash = hashlib.sha256(''.join(top_content).encode()).hexdigest()[:16]
 
         # Combine query and content hash
         cache_input = f"{normalized_query}_{content_hash}"
-        return hashlib.md5(cache_input.encode()).hexdigest()
+        return hashlib.sha256(cache_input.encode()).hexdigest()
 
     def get(self, query: str, search_results: list) -> Optional[str]:
         """Get cached response if available"""

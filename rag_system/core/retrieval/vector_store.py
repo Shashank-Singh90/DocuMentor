@@ -1,9 +1,8 @@
 """
-Vector Store using ChromaDB
-Migration history:
-- 2023-12: Started with Pinecone (too expensive)
-- 2024-01: Moved to Weaviate (complex setup)
-- 2024-02: Settled on ChromaDB (good enough)
+Vector Store implementation using ChromaDB for document embeddings and semantic search.
+
+Handles document storage, retrieval, and similarity search with proper error handling
+and retry logic for ChromaDB operations.
 """
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -15,7 +14,7 @@ from filelock import FileLock, Timeout
 from rag_system.core.utils.logger import get_logger
 from rag_system.core.utils.embedding_cache import embedding_cache
 from rag_system.config.settings import get_settings
-from rag_system.core.constants import CHROMADB_RETRY_ATTEMPTS, CHROMADB_RETRY_DELAY
+from rag_system.core.constants import CHROMADB_RETRY_ATTEMPTS, CHROMADB_RETRY_DELAY, CHROMADB_DOCUMENT_LIMIT
 
 settings = get_settings()
 
@@ -26,7 +25,7 @@ class ChromaVectorStore:
         self.persist_directory = settings.chroma_persist_directory
         self.collection_name = settings.collection_name
 
-        # Set up file locking - learned this the hard way after dealing with corruption issues
+        # Set up file locking to prevent database corruption
         lock_dir = Path(self.persist_directory).parent / "locks"
         lock_dir.mkdir(parents=True, exist_ok=True)
         self.lock_file_path = lock_dir / f"{self.collection_name}.lock"
@@ -42,7 +41,7 @@ class ChromaVectorStore:
         # Get optimized embedding function with caching
         try:
             base_embedding = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"  # this model is pretty good and fast
+                model_name="all-MiniLM-L6-v2"
             )
             self.embedding_function = CachedEmbeddingFunction(
                 base_embedding,
@@ -78,12 +77,21 @@ class ChromaVectorStore:
                 logger.info(f"Using existing collection: {self.collection.count()} docs")
     
     def add_documents(self, texts: List[str], metadatas: List[dict], ids: List[str]):
-        """Add documents - using upsert because add() is flaky
+        """
+        Add documents to the vector store using upsert for reliability.
 
-        ChromaDB bugs we're working around:
-        - None values crash it (replace with "")
-        - Unicode > U+10000 breaks indexing
-        - Batches > 100 timeout randomly
+        Args:
+            texts: List of document texts to add
+            metadatas: List of metadata dictionaries for each document
+            ids: List of unique IDs for each document
+
+        Returns:
+            Number of documents successfully added
+
+        Note: Implements data sanitization to handle ChromaDB compatibility issues:
+            - None values are replaced with empty strings
+            - High Unicode characters are stripped
+            - Batching prevents timeout issues
         """
         # Use file locking to prevent concurrent writes
         with self.lock:
@@ -151,16 +159,23 @@ class ChromaVectorStore:
         return added
     
     def search(self, query: str, k: int = 5, filter_dict: Optional[Dict] = None) -> List[Dict]:
-        """Search for similar documents
-        
-        Note: ChromaDB search is weird with short queries
+        """
+        Search for similar documents using semantic similarity.
+
+        Args:
+            query: Search query string
+            k: Number of results to return (default: 5, max: 100)
+            filter_dict: Optional metadata filters
+
+        Returns:
+            List of dictionaries containing matched documents with content, metadata, and similarity scores
         """
         # Clean query
         query = query.encode('utf-8', 'ignore').decode('utf-8')
-        
-        # Short queries need padding (discovered through testing)
+
+        # Enhance short queries for better semantic matching
         if len(query.split()) < 3:
-            query = f"{query} documentation reference"  # Hack but improves results
+            query = f"{query} documentation reference"
         
         try:
             results = self.collection.query(
@@ -190,11 +205,16 @@ class ChromaVectorStore:
             return []  # Return empty rather than crash
     
     def get_collection_stats(self) -> Dict:
-        """Get collection statistics"""
+        """
+        Get collection statistics including document count and source distribution.
+
+        Returns:
+            Dictionary containing total chunks, sources distribution, and sample size
+        """
         try:
             count = self.collection.count()
-            # Hacky way to get sources
-            sample = self.collection.get(limit=1000)  # Can't get all, too slow
+            # Sample documents to analyze source distribution
+            sample = self.collection.get(limit=1000)
             sources = {}
             for meta in sample.get('metadatas', []):
                 if meta and 'source' in meta:
@@ -229,17 +249,27 @@ class ChromaVectorStore:
             return 25
 
     def add_documents_optimized(self, texts: List[str], metadatas: List[dict], ids: List[str]):
-        """Optimized document addition with better memory management"""
+        """
+        Optimized document addition with better memory management.
+
+        Args:
+            texts: List of document texts to add
+            metadatas: List of metadata dictionaries for each document
+            ids: List of unique IDs for each document
+
+        Returns:
+            Number of documents successfully added
+        """
         if not texts:
             return 0
 
-        logger.info(f"🚀 Adding {len(texts)} documents with optimized processing...")
+        logger.info(f"Adding {len(texts)} documents with optimized processing")
 
         # Pre-process all data to avoid doing it in batches
         clean_texts, clean_metadatas = self._preprocess_documents(texts, metadatas)
 
         BATCH_SIZE = self._calculate_optimal_batch_size(clean_texts)
-        logger.info(f"📊 Using batch size: {BATCH_SIZE}")
+        logger.info(f"Using batch size: {BATCH_SIZE}")
 
         added = 0
         total_batches = (len(clean_texts) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -248,7 +278,7 @@ class ChromaVectorStore:
             batch_end = min(batch_idx + BATCH_SIZE, len(clean_texts))
             current_batch = batch_idx // BATCH_SIZE + 1
 
-            logger.info(f"📦 Processing batch {current_batch}/{total_batches}")
+            logger.info(f"Processing batch {current_batch}/{total_batches}")
 
             try:
                 self.collection.upsert(
@@ -259,7 +289,7 @@ class ChromaVectorStore:
                 added += batch_end - batch_idx
 
             except Exception as e:
-                logger.error(f"❌ Failed to add batch {current_batch}: {e}")
+                logger.error(f"Failed to add batch {current_batch}: {e}")
                 # Try individual documents in this batch
                 for i in range(batch_idx, batch_end):
                     try:
@@ -270,9 +300,9 @@ class ChromaVectorStore:
                         )
                         added += 1
                     except Exception as individual_error:
-                        logger.warning(f"⚠️ Skipped document {i}: {individual_error}")
+                        logger.warning(f"Skipped document {i}: {individual_error}")
 
-        logger.info(f"✅ Successfully added {added}/{len(texts)} documents")
+        logger.info(f"Successfully added {added}/{len(texts)} documents")
         return added
 
     def _preprocess_documents(self, texts: List[str], metadatas: List[dict]) -> tuple:
@@ -334,7 +364,7 @@ class CachedEmbeddingFunction:
 
         # Generate embeddings for uncached texts
         if uncached_texts:
-            logger.debug(f"🔄 Generating {len(uncached_texts)} new embeddings...")
+            logger.debug(f"Generating {len(uncached_texts)} new embeddings")
             new_embeddings = self.base_function(uncached_texts)
 
             # Cache new embeddings and add to results
