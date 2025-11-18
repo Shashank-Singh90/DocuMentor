@@ -1,244 +1,169 @@
 # DocuMentor
 
-> An intelligent RAG-powered documentation assistant for developers
+> **AI-Powered Documentation Assistant with Retrieval-Augmented Generation (RAG)**
 
-DocuMentor is a production-ready Retrieval-Augmented Generation (RAG) system that transforms how developers interact with technical documentation. Built with Python, it combines vector search, multi-provider LLM support, and intelligent document processing to deliver accurate, context-aware answers from comprehensive technical documentation.
-
-## Table of Contents
-
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [API Reference](#api-reference)
-- [Supported Technologies](#supported-technologies)
-- [Project Structure](#project-structure)
-- [Development](#development)
-- [Performance](#performance)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+DocuMentor is an intelligent documentation assistant that helps developers quickly find, understand, and generate code based on comprehensive documentation databases. Built with FastAPI, Streamlit, and ChromaDB, it provides both a modern web interface and production-ready REST API.
 
 ## Features
 
 ### Core Capabilities
 
-- **Semantic Search**: Vector-based similarity search powered by ChromaDB with 384-dimensional embeddings
-- **Multi-LLM Support**: Ollama (local), OpenAI GPT, and Google Gemini with automatic fallback
-- **Smart Code Generation**: Technology-aware code generation with context from documentation
-- **Web Search Integration**: Real-time information retrieval via DuckDuckGo and Firecrawl
-- **Multi-Format Documents**: Process PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, and more
-- **Technology Filtering**: Filter queries by framework (Python, Django, FastAPI, React, etc.)
+- **Intelligent Documentation Search** - Semantic search across 9+ programming technologies using vector embeddings
+- **AI-Powered Code Generation** - Context-aware code generation with technology-specific knowledge
+- **Multi-Provider LLM Support** - Flexible integration with Ollama (local), OpenAI, and Google Gemini
+- **Real-Time Web Search** - Augment documentation with live web results
+- **Modern Web UI** - User-friendly Streamlit interface with dark/light mode
+- **Production REST API** - FastAPI backend with authentication and rate limiting
+- **Document Processing** - Upload and process 10+ file formats (PDF, DOCX, PPTX, etc.)
 
-### Production Features
+### Supported Technologies
 
-- **API Key Authentication**: Secure endpoints with timing-safe key comparison
-- **Rate Limiting**: Configurable per-endpoint rate limits to prevent abuse
-- **Prometheus Metrics**: Complete observability with `/metrics` endpoint
-- **Response Caching**: Two-tier caching (embeddings + responses) for 95% faster queries
-- **Parallel Processing**: ThreadPoolExecutor-based concurrent document processing
-- **CORS Configuration**: Environment-based CORS setup for flexible deployment
-- **Structured Logging**: Rich console output with configurable log levels
-- **Graceful Degradation**: Automatic fallback mechanisms when services are unavailable
-
-### User Interfaces
-
-- **Streamlit Web UI**: Modern, responsive interface with dark/light mode
-- **REST API**: FastAPI-powered API with automatic OpenAPI documentation
-- **Dual Launcher**: Run both interfaces simultaneously with health monitoring
+- Python 3.13.5
+- FastAPI
+- Django 5.2
+- React & Next.js
+- Node.js
+- PostgreSQL
+- MongoDB
+- TypeScript
+- LangChain
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.8+
+- Ollama (for local LLM) or OpenAI/Gemini API keys
+- 2GB+ RAM for vector database
+
+### Installation
+
+1. **Clone the repository**
 ```bash
-# Clone the repository
 git clone https://github.com/Shashank-Singh90/DocuMentor.git
 cd DocuMentor
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings (API keys, ports, etc.)
-
-# Launch the system
-python launcher.py
 ```
 
-Access the interfaces:
-- **Web UI**: http://localhost:8506
-- **API Docs**: http://localhost:8100/docs
-- **Metrics**: http://localhost:8100/metrics
+2. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+3. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your settings (see Configuration section)
+```
+
+4. **Start the application**
+```bash
+# Option 1: Launch complete system (FastAPI + Streamlit)
+python launcher.py
+
+# Option 2: Start web UI only
+python main.py
+
+# Option 3: Start API server only
+python api_server.py
+```
+
+5. **Access the application**
+- Web UI: http://127.0.0.1:8506
+- API Server: http://127.0.0.1:8100
+- API Documentation: http://127.0.0.1:8100/docs
 
 ## Architecture
 
+### System Overview
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   User Interfaces                        │
-│  ┌──────────────────┐         ┌──────────────────┐      │
-│  │  Streamlit Web   │         │   FastAPI REST   │      │
-│  │   Port: 8506     │         │   Port: 8100     │      │
-│  └────────┬─────────┘         └────────┬─────────┘      │
-└───────────┼──────────────────────────────┼──────────────┘
-            │                              │
-            └──────────────┬───────────────┘
-                           ▼
-            ┌──────────────────────────────┐
-            │       Core RAG System         │
+┌─────────────────────────────────────────────────────────────┐
+│                     User Interfaces                          │
+│  ┌──────────────────┐              ┌──────────────────────┐ │
+│  │  Streamlit UI    │              │    FastAPI REST API  │ │
+│  │  (Port 8506)     │              │    (Port 8100)       │ │
+│  └────────┬─────────┘              └──────────┬───────────┘ │
+└───────────┼──────────────────────────────────┼──────────────┘
+            │                                   │
+            └───────────────┬───────────────────┘
+                           │
+            ┌──────────────▼───────────────┐
+            │   Core RAG System (Shared)   │
             ├──────────────────────────────┤
-            │ • Smart Chunker               │
-            │ • Vector Store (ChromaDB)     │
-            │ • LLM Handler (Multi-provider)│
-            │ • Document Processor          │
-            │ • Web Search Provider         │
-            │ • Cache Layer (2-tier)        │
+            │ • Authentication Middleware  │
+            │ • Rate Limiting              │
+            │ • Input Validation          │
+            │ • Metrics & Monitoring       │
             └──────────────┬───────────────┘
                            │
-            ┌──────────────┴────────────────┐
-            ▼                               ▼
-    ┌───────────────┐           ┌───────────────────┐
-    │   ChromaDB    │           │  External Services │
-    │  Vector DB    │           ├───────────────────┤
-    │  (Persistent) │           │ • Ollama (local)  │
-    └───────────────┘           │ • OpenAI API      │
-                                │ • Google Gemini   │
-                                │ • DuckDuckGo      │
-                                │ • Firecrawl       │
-                                └───────────────────┘
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+        ▼                  ▼                  ▼
+   ┌─────────┐      ┌─────────────┐    ┌──────────┐
+   │ Vector  │      │   LLM       │    │   Web    │
+   │ Store   │      │ Handler     │    │  Search  │
+   │ (Chroma)│      │ (Multi-     │    │          │
+   │         │      │  Provider)  │    │          │
+   └────┬────┘      └─────────────┘    └──────────┘
+        │
+   ┌────▼────────────────────────────┐
+   │  Document Processing Pipeline   │
+   │  • Smart Chunker               │
+   │  • Multi-format Processor      │
+   │  • Metadata Extraction         │
+   └─────────────────────────────────┘
 ```
 
-### Design Patterns
+### Technology Stack
 
-- **Repository Pattern**: Abstracted vector store operations
-- **Strategy Pattern**: Pluggable LLM providers
-- **Factory Pattern**: Document processor for multiple formats
-- **Middleware Pattern**: Authentication and validation layers
-- **Observer Pattern**: Prometheus metrics collection
+**Backend**
+- FastAPI 0.115.0 - REST API framework
+- Uvicorn 0.32.0 - ASGI server
+- Streamlit 1.29.0 - Web UI framework
 
-## Technology Stack
+**Vector Database & AI**
+- ChromaDB 1.1.0 - Vector database for embeddings
+- LangChain 0.3.27 - LLM orchestration
+- sentence-transformers 5.1.0 - Embedding model (all-MiniLM-L6-v2)
 
-### Backend Framework
-- **Python 3.13.5**: Core language
-- **FastAPI 0.115.0**: High-performance async API framework
-- **Uvicorn 0.32.0**: ASGI server
-- **Pydantic 2.11.0**: Data validation and settings management
+**LLM Providers**
+- Ollama - Local LLM inference (default: gemma2:2b)
+- OpenAI - GPT API integration
+- Google Gemini - Alternative cloud LLM
 
-### Vector & Embeddings
-- **ChromaDB 1.1.0**: Vector database with persistence
-- **Sentence-Transformers 5.1.0**: Embedding generation
-- **Model**: all-MiniLM-L6-v2 (384 dimensions, optimized for speed)
-
-### AI & LLM
-- **LangChain 0.3.27**: RAG framework and document processing
-- **Transformers 4.56.0**: Model support infrastructure
-- **OpenAI 1.0.0**: GPT-3.5-turbo integration
-- **Google Generative AI 0.3.0**: Gemini Pro integration
-
-### Document Processing
-- **pypdf 6.0.0**: PDF text extraction
-- **python-docx 1.1.0**: Microsoft Word documents
-- **python-pptx 0.6.0**: PowerPoint presentations
-- **openpyxl 3.1.0**: Excel spreadsheets
-- **pandas 2.3.0**: Data manipulation and CSV processing
-- **BeautifulSoup 4.12.0**: HTML/XML parsing
-
-### Frontend
-- **Streamlit 1.29.0**: Interactive web interface with real-time updates
-
-### Monitoring & Performance
-- **Prometheus-client 0.20.0**: Metrics collection and exposure
-- **slowapi 0.1.9**: Rate limiting
-- **filelock 3.13.0**: Concurrent access control
-- **Rich 13.9.0**: Enhanced terminal output
-
-## Installation
-
-### Prerequisites
-
-- **Python 3.11+** (Python 3.13.5 recommended)
-- **4GB RAM minimum** (8GB recommended)
-- **2GB disk space** (for vector database and cache)
-- **Ollama** (optional, for local LLM - recommended for privacy)
-
-### Step-by-Step Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Shashank-Singh90/DocuMentor.git
-   cd DocuMentor
-   ```
-
-2. **Create virtual environment** (recommended)
-   ```bash
-   python -m venv venv
-
-   # On Windows
-   venv\Scripts\activate
-
-   # On Linux/Mac
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Install Ollama** (optional but recommended)
-   ```bash
-   # Visit https://ollama.ai for installation instructions
-   # After installation, pull a model:
-   ollama pull gemma2:2b
-   ```
-
-5. **Configure environment**
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and configure:
-   - LLM provider settings (Ollama/OpenAI/Gemini)
-   - API keys (if using cloud providers)
-   - Server ports and host
-   - Optional: rate limits, cache settings
-
-6. **Verify installation**
-   ```bash
-   python tests.py
-   ```
+**Document Processing**
+- pypdf 6.0.0 - PDF processing
+- python-docx 1.1.0 - Word documents
+- python-pptx 0.6.0 - PowerPoint
+- openpyxl 3.1.0 - Excel files
+- beautifulsoup4 4.12.0 - HTML parsing
 
 ## Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the root directory with the following settings:
 
 ```bash
 # Application Settings
-APP_NAME=DocuMentor
+APP_NAME=RAG System
+APP_VERSION=2.0.0
 DEBUG=false
 HOST=127.0.0.1
 PORT=8501
 
-# LLM Configuration
-DEFAULT_LLM_PROVIDER=ollama  # Options: ollama, openai, gemini
+# Ollama Configuration
 OLLAMA_HOST=localhost:11434
-OLLAMA_MODEL=gemma2:2b
+OLLAMA_MODEL=gemma2:2b  # Options: llama2, mixtral, gemma2:2b
 OLLAMA_TIMEOUT=120
-
-# API Keys (Optional - only if using cloud providers)
-OPENAI_API_KEY=sk-your-openai-key-here
-GEMINI_API_KEY=your-gemini-api-key-here
 
 # Vector Database
 CHROMA_PERSIST_DIRECTORY=./data/chroma_db
 COLLECTION_NAME=documents
 EMBEDDING_MODEL=all-MiniLM-L6-v2
+EMBEDDING_DIMENSION=384
 
-# Chunking Strategy
+# Chunking Configuration
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
 MAX_CHUNKS_PER_DOC=1000
@@ -248,737 +173,725 @@ CACHE_DIR=./data/cache
 EMBEDDING_CACHE_DIR=./data/cache/embeddings
 MAX_CACHE_SIZE=1000
 CACHE_TTL=3600
+MAX_EMBEDDING_CACHE_SIZE=10000
 
-# Security
-API_KEY=your-secure-api-key-min-16-chars  # Optional, leave empty to disable
-CORS_ORIGINS=http://localhost:3000,http://localhost:8506
-
-# Rate Limiting (requests per minute)
-RATE_LIMIT_SEARCH=60
-RATE_LIMIT_UPLOAD=10
-RATE_LIMIT_QUERY=30
-RATE_LIMIT_GENERATION=20
+# Performance
+MAX_WORKERS=4
+BATCH_SIZE=100
+TIMEOUT=30
 
 # File Upload
 UPLOAD_DIR=./data/uploads
-MAX_FILE_SIZE=52428800  # 50MB in bytes
+MAX_FILE_SIZE=52428800  # 50 MB
+ALLOWED_EXTENSIONS=.txt,.md,.pdf,.docx,.doc,.rtf,.csv,.odt,.pptx,.xlsx
 
-# Web Search
-ENABLE_WEB_SEARCH=true
-FIRECRAWL_API_KEY=  # Optional, for enhanced web search
+# API & Security
+API_KEY=  # Optional, recommended for production (min 16 chars)
+CORS_ORIGINS=http://localhost:3000,http://localhost:8501,http://127.0.0.1:8501,http://127.0.0.1:8506
 
 # Logging
-LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR
-```
-
-### Configuration Profiles
-
-**Development Mode**:
-```bash
-DEBUG=true
-LOG_LEVEL=DEBUG
-ENABLE_WEB_SEARCH=false
-```
-
-**Production Mode**:
-```bash
-DEBUG=false
 LOG_LEVEL=INFO
-API_KEY=your-production-api-key
-RATE_LIMIT_SEARCH=30  # Stricter limits
+LOG_FILE=./logs/rag_system.log
+LOG_MAX_SIZE=10485760  # 10 MB
+LOG_BACKUP_COUNT=5
+
+# External APIs (Optional)
+OPENAI_API_KEY=  # For OpenAI provider
+GEMINI_API_KEY=  # For Google Gemini provider
+FIRECRAWL_API_KEY=  # For web search
+FIRECRAWL_API_URL=http://localhost:3002
+
+# LLM Provider Settings
+DEFAULT_LLM_PROVIDER=ollama  # Options: ollama, openai, gemini
+ENABLE_WEB_SEARCH=true
+ENABLE_CODE_GENERATION=true
+ENABLE_SOURCE_FILTERING=true
 ```
 
-**Offline Mode**:
+### Ollama Setup
+
+1. **Install Ollama**
 ```bash
-DEFAULT_LLM_PROVIDER=ollama
-ENABLE_WEB_SEARCH=false
-# No API keys required
+# Linux/Mac
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Windows
+# Download from https://ollama.ai/download
 ```
 
-## Usage
-
-### Launch Options
-
-**Option 1: Complete System** (Recommended)
+2. **Pull a model**
 ```bash
-python launcher.py
+ollama pull gemma2:2b  # Recommended: Fast, 2B parameters
+# Or
+ollama pull llama2     # Alternative: More capable, slower
 ```
-Launches both Web UI (port 8506) and API (port 8100) with health monitoring.
 
-**Option 2: Web UI Only**
+3. **Verify Ollama is running**
 ```bash
-python main.py --port 8506
-```
-
-**Option 3: API Only**
-```bash
-python api_server.py --port 8100 --host 127.0.0.1
-```
-
-### Web Interface
-
-Navigate to `http://localhost:8506` after launching.
-
-**Features**:
-- **Search Bar**: Enter natural language questions
-- **Technology Filter**: Select specific framework (Python, Django, FastAPI, etc.)
-- **Response Mode**:
-  - **Smart Answer**: Balanced, comprehensive responses
-  - **Code Generation**: Working code implementations with examples
-  - **Detailed Sources**: In-depth explanations with documentation references
-- **Document Upload**: Drag-and-drop or browse to add custom documentation
-- **Theme Toggle**: Switch between dark and light modes
-- **Chat History**: View previous queries and responses
-
-### API Usage
-
-**Example 1: Ask a Question**
-```bash
-curl -X POST http://localhost:8100/ask/enhanced \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "How do I use FastAPI dependency injection?",
-    "technology_filter": "fastapi",
-    "response_mode": "smart_answer",
-    "search_k": 8
-  }'
-```
-
-**Example 2: Generate Code**
-```bash
-curl -X POST http://localhost:8100/generate-code/enhanced \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Create a REST API endpoint with authentication",
-    "language": "python",
-    "technology": "fastapi",
-    "style": "complete_implementation"
-  }'
-```
-
-**Example 3: Upload Document**
-```bash
-curl -X POST http://localhost:8100/upload \
-  -F "file=@/path/to/document.pdf" \
-  -F "technology=python"
-```
-
-**Example 4: Technology-Specific Query**
-```bash
-curl -X POST http://localhost:8100/technology-query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "database models and migrations",
-    "technology": "django",
-    "search_k": 5
-  }'
-```
-
-**Example 5: Check System Status**
-```bash
-curl http://localhost:8100/status
-```
-
-### Python SDK Usage
-
-```python
-from rag_system.core.retrieval import VectorStore
-from rag_system.core.generation import LLMHandler
-from rag_system.config import Settings
-
-# Initialize components
-settings = Settings()
-vector_store = VectorStore()
-llm_handler = LLMHandler()
-
-# Search documentation
-results = vector_store.search(
-    query="FastAPI routing",
-    k=5,
-    technology_filter="fastapi"
-)
-
-# Generate answer
-answer = llm_handler.generate_answer(
-    question="How do I create API routes?",
-    context=results
-)
-
-print(answer)
+curl http://localhost:11434/api/version
 ```
 
 ## API Reference
 
-### Core Endpoints
+### REST API Endpoints
 
-#### `GET /`
-Get API information and version.
+#### General Endpoints
 
-#### `GET /status`
-System health check with capabilities.
+**Get API Information**
+```http
+GET /
+```
 
-**Response**:
+**Check System Status**
+```http
+GET /status
+```
+Response:
 ```json
 {
-  "status": "healthy",
+  "status": "operational",
   "version": "2.0.0",
-  "components": {
-    "vector_store": "operational",
-    "llm_providers": ["ollama", "openai", "gemini"],
-    "cache": "enabled",
-    "web_search": "enabled"
-  },
-  "statistics": {
-    "total_documents": 270,
-    "total_chunks": 1500,
-    "cache_hit_rate": 0.87
+  "llm_providers": ["ollama", "openai", "gemini"],
+  "features": {
+    "web_search": true,
+    "code_generation": true,
+    "source_filtering": true
   }
 }
 ```
 
-#### `GET /technologies`
-List all available technology filters.
+**Get Prometheus Metrics**
+```http
+GET /metrics
+```
 
-**Response**:
-```json
+#### Technology Endpoints
+
+**List Available Technologies**
+```http
+GET /technologies
+```
+
+**Get Technology Statistics**
+```http
+GET /technologies/{technology}/stats
+```
+
+#### Q&A Endpoints
+
+**Enhanced Question Answering**
+```http
+POST /ask/enhanced
+Content-Type: application/json
+
 {
-  "technologies": [
-    "python",
-    "django",
-    "fastapi",
-    "react",
-    "nextjs",
-    "nodejs",
-    "typescript",
-    "postgresql",
-    "mongodb",
-    "langchain"
-  ]
+  "question": "How do I create a FastAPI endpoint?",
+  "search_k": 5,
+  "enable_web_search": false,
+  "response_mode": "smart",
+  "technology_filter": "fastapi",
+  "source_filter": "",
+  "temperature": 0.7,
+  "max_tokens": 2000
 }
 ```
 
-#### `GET /metrics`
-Prometheus metrics endpoint.
-
-### Query Endpoints
-
-#### `POST /ask/enhanced`
-Enhanced question-answering with filtering.
-
-**Request Body**:
+Response:
 ```json
 {
-  "question": "string (required)",
-  "technology_filter": "string (optional)",
-  "response_mode": "smart_answer | code_generation | detailed_sources",
-  "search_k": "integer (default: 8)",
-  "enable_web_search": "boolean (default: false)"
-}
-```
-
-**Response**:
-```json
-{
-  "answer": "string",
+  "answer": "To create a FastAPI endpoint...",
   "sources": [
     {
-      "content": "string",
+      "content": "FastAPI endpoint example...",
       "metadata": {
-        "source": "string",
-        "technology": "string",
-        "chunk_id": "integer"
-      },
-      "similarity_score": "float"
+        "source": "fastapi_docs.json",
+        "technology": "FastAPI"
+      }
     }
   ],
-  "metadata": {
-    "llm_provider": "string",
-    "response_time": "float",
-    "cache_hit": "boolean"
-  }
+  "response_time": 1.23,
+  "provider_used": "ollama",
+  "source_count": 3,
+  "technology_context": "FastAPI"
 }
 ```
 
-#### `POST /generate-code/enhanced`
-Technology-aware code generation.
+**Code Generation**
+```http
+POST /generate-code/enhanced
+Content-Type: application/json
 
-**Request Body**:
+{
+  "prompt": "Create a REST API endpoint for user authentication",
+  "language": "python",
+  "technology": "fastapi",
+  "include_context": true,
+  "style": "complete"
+}
+```
+
+Response:
 ```json
 {
-  "prompt": "string (required)",
-  "language": "string (required)",
-  "technology": "string (optional)",
-  "style": "complete_implementation | snippet | explanation",
-  "include_comments": "boolean (default: true)"
+  "code": "from fastapi import FastAPI, HTTPException...",
+  "language": "python",
+  "technology": "fastapi",
+  "style": "complete",
+  "context_used": true,
+  "provider": "ollama"
 }
 ```
 
-#### `POST /technology-query`
-Technology-specific filtered queries.
+**Technology-Specific Query**
+```http
+POST /technology-query
+Content-Type: application/json
 
-**Request Body**:
-```json
 {
-  "query": "string (required)",
-  "technology": "string (required)",
-  "search_k": "integer (default: 5)"
+  "technology": "django",
+  "question": "How do I create a Django model?",
+  "mode": "smart"
 }
 ```
 
-### Document Management
+#### Document Management
 
-#### `POST /upload`
-Upload and process documents.
+**Upload Document**
+```http
+POST /upload
+Content-Type: multipart/form-data
 
-**Request**: multipart/form-data
-- `file`: File to upload (PDF, DOCX, TXT, etc.)
-- `technology`: Optional technology tag
+file: <file>
+source: <optional_source_name>
+```
 
-**Response**:
+Response:
 ```json
 {
   "success": true,
-  "filename": "string",
-  "chunks_created": "integer",
-  "technology": "string",
-  "processing_time": "float"
+  "chunks_created": 45,
+  "file_type": "application/pdf",
+  "metadata": {
+    "filename": "python_guide.pdf",
+    "size": 1048576
+  }
 }
 ```
 
 ### Rate Limits
 
-| Endpoint | Default Limit |
-|----------|---------------|
-| `/ask/*` | 30/minute |
-| `/generate-code/*` | 20/minute |
-| `/upload` | 10/minute |
-| `/technology-query` | 30/minute |
-| Other endpoints | 60/minute |
+- **Search Endpoints**: 60 requests/minute
+- **Upload Endpoint**: 10 requests/minute
+- **Query Endpoints**: 30 requests/minute
+- **Code Generation**: 20 requests/minute
 
-Configure limits via environment variables: `RATE_LIMIT_QUERY`, `RATE_LIMIT_GENERATION`, `RATE_LIMIT_UPLOAD`, `RATE_LIMIT_SEARCH`
+### Authentication
 
-## Supported Technologies
+For production deployments, set the `API_KEY` environment variable and include it in requests:
 
-DocuMentor includes pre-embedded documentation for:
+```http
+X-API-Key: your-api-key-here
+```
 
-| Technology | Coverage | Size |
-|------------|----------|------|
-| **Python 3.13.5** | Language fundamentals, stdlib, data types | 11KB + 3.0MB |
-| **Django 5.2** | Models, views, templates, ORM | 34KB + 1.1MB |
-| **FastAPI** | Routing, async, Pydantic, dependencies | 16KB |
-| **React & Next.js** | Components, hooks, SSR, routing | 27KB + 225KB |
-| **Node.js** | Event loop, modules, streams, async | 26KB |
-| **TypeScript** | Types, interfaces, generics, decorators | 28KB |
-| **PostgreSQL** | SQL, queries, indexes, optimization | 22KB + 512KB |
-| **MongoDB** | NoSQL, aggregation, indexing, sharding | 23KB |
-| **LangChain** | RAG, chains, agents, tools | 39KB |
+## Usage Examples
 
-**Total**: ~224KB pre-embedded + ~4.8MB scraped documentation
+### Web UI Usage
+
+1. **Ask a Question**
+   - Enter your question in the input field
+   - Select response mode (Smart Answer / Code Generation / Detailed Sources)
+   - Optionally filter by technology
+   - Click "Get Smart Answer" or press Enter
+
+2. **Generate Code**
+   - Switch to "Code Generation" mode
+   - Describe what you want to build
+   - Specify the technology/language
+   - Click "Generate Code"
+
+3. **Upload Documents**
+   - Use the sidebar upload section
+   - Drag and drop or browse for files
+   - Supported formats: PDF, DOCX, PPTX, XLSX, TXT, MD, etc.
+   - Documents are automatically processed and indexed
+
+4. **Customize Settings**
+   - Adjust search depth (k parameter)
+   - Enable/disable web search
+   - Change LLM provider
+   - Modify temperature and max tokens
+   - Toggle dark/light mode
+
+### Python API Client
+
+```python
+import requests
+
+# Base URL
+API_URL = "http://127.0.0.1:8100"
+
+# Ask a question
+response = requests.post(
+    f"{API_URL}/ask/enhanced",
+    json={
+        "question": "How do I use async/await in Python?",
+        "search_k": 5,
+        "response_mode": "smart",
+        "technology_filter": "python"
+    }
+)
+result = response.json()
+print(result["answer"])
+
+# Generate code
+response = requests.post(
+    f"{API_URL}/generate-code/enhanced",
+    json={
+        "prompt": "Create a PostgreSQL connection pool",
+        "language": "python",
+        "technology": "postgresql",
+        "style": "complete"
+    }
+)
+code = response.json()["code"]
+print(code)
+
+# Upload a document
+with open("my_docs.pdf", "rb") as f:
+    response = requests.post(
+        f"{API_URL}/upload",
+        files={"file": f},
+        data={"source": "custom_docs"}
+    )
+print(response.json())
+```
+
+### cURL Examples
+
+```bash
+# Ask a question
+curl -X POST "http://127.0.0.1:8100/ask/enhanced" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "How do I create a React component?",
+    "technology_filter": "react_nextjs",
+    "response_mode": "smart"
+  }'
+
+# Generate code
+curl -X POST "http://127.0.0.1:8100/generate-code/enhanced" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Create a FastAPI endpoint with validation",
+    "language": "python",
+    "technology": "fastapi"
+  }'
+
+# Upload document
+curl -X POST "http://127.0.0.1:8100/upload" \
+  -F "file=@document.pdf" \
+  -F "source=my_docs"
+
+# Get system status
+curl "http://127.0.0.1:8100/status"
+```
 
 ## Project Structure
 
 ```
 DocuMentor/
-├── launcher.py                  # System launcher (both UI + API)
-├── main.py                      # Streamlit web interface entry
-├── api_server.py                # FastAPI REST API entry
-├── tests.py                     # Comprehensive test suite
-├── requirements.txt             # Python dependencies (56 packages)
-├── .env.example                 # Environment configuration template
-├── LICENSE                      # MIT License
+├── rag_system/                    # Main application package
+│   ├── api/                       # REST API layer
+│   │   ├── server.py              # FastAPI application
+│   │   └── middleware/
+│   │       ├── auth.py            # API key authentication
+│   │       └── validation.py      # Input validation
+│   │
+│   ├── web/                       # Web UI layer
+│   │   └── app.py                 # Streamlit application
+│   │
+│   ├── core/                      # Core RAG components
+│   │   ├── retrieval/
+│   │   │   └── vector_store.py    # ChromaDB vector store
+│   │   │
+│   │   ├── generation/
+│   │   │   └── llm_handler.py     # Multi-provider LLM support
+│   │   │
+│   │   ├── chunking/
+│   │   │   └── chunker.py         # Smart document chunking
+│   │   │
+│   │   ├── processing/
+│   │   │   └── document_processor.py  # Multi-format processing
+│   │   │
+│   │   ├── search/
+│   │   │   └── web_search.py      # Web search integration
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── logger.py          # Logging utility
+│   │   │   ├── cache.py           # Response caching
+│   │   │   ├── embedding_cache.py # Embedding caching
+│   │   │   └── metrics.py         # Prometheus metrics
+│   │   │
+│   │   └── constants.py           # System constants
+│   │
+│   └── config/
+│       └── settings.py            # Configuration management
 │
-├── rag_system/                  # Core RAG system package
-│   ├── __init__.py
-│   │
-│   ├── config/                  # Configuration management
-│   │   ├── __init__.py
-│   │   └── settings.py          # Pydantic settings (152 lines)
-│   │
-│   ├── core/                    # Core RAG components
-│   │   ├── __init__.py
-│   │   ├── constants.py         # System constants (149 lines)
-│   │   │
-│   │   ├── chunking/            # Document chunking
-│   │   │   ├── __init__.py
-│   │   │   └── chunker.py       # Smart chunking algorithm (376 lines)
-│   │   │
-│   │   ├── retrieval/           # Vector search
-│   │   │   ├── __init__.py
-│   │   │   └── vector_store.py  # ChromaDB interface (359 lines)
-│   │   │
-│   │   ├── generation/          # LLM integration
-│   │   │   ├── __init__.py
-│   │   │   └── llm_handler.py   # Multi-provider handler (311 lines)
-│   │   │
-│   │   ├── processing/          # Document processing
-│   │   │   ├── __init__.py
-│   │   │   └── document_processor.py  # Multi-format support (451 lines)
-│   │   │
-│   │   ├── search/              # Web search
-│   │   │   ├── __init__.py
-│   │   │   └── web_search.py    # DuckDuckGo/Firecrawl (425 lines)
-│   │   │
-│   │   └── utils/               # Utilities
-│   │       ├── __init__.py
-│   │       ├── logger.py        # Structured logging (36 lines)
-│   │       ├── cache.py         # Response cache (177 lines)
-│   │       ├── embedding_cache.py  # Embedding cache
-│   │       └── metrics.py       # Prometheus metrics (368 lines)
-│   │
-│   ├── api/                     # FastAPI REST API
-│   │   ├── __init__.py
-│   │   ├── server.py            # API routes & logic (541 lines)
-│   │   │
-│   │   └── middleware/          # API middleware
-│   │       ├── __init__.py
-│   │       ├── auth.py          # API key authentication (85 lines)
-│   │       └── validation.py    # Input validation
-│   │
-│   └── web/                     # Streamlit web interface
-│       ├── __init__.py
-│       └── app.py               # Web UI implementation (1013 lines)
+├── data/                          # Data directory
+│   ├── chroma_db/                 # Vector database storage
+│   ├── cache/                     # Response and embedding cache
+│   ├── uploads/                   # Uploaded documents
+│   ├── scraped/                   # Pre-scraped documentation
+│   └── preembedded/               # Pre-embedded documents
 │
-└── data/                        # Data storage (gitignored)
-    ├── preembedded/             # Pre-embedded documentation
-    │   ├── python_comprehensive.txt
-    │   ├── django_comprehensive.txt
-    │   ├── fastapi_comprehensive.txt
-    │   ├── react_nextjs_comprehensive.txt
-    │   ├── nodejs_comprehensive.txt
-    │   ├── typescript_comprehensive.txt
-    │   ├── postgresql_comprehensive.txt
-    │   ├── mongodb_comprehensive.txt
-    │   └── langchain_comprehensive.txt
-    │
-    ├── scraped/                 # Scraped documentation (JSON)
-    │   ├── python_docs.json
-    │   ├── django_docs.json
-    │   └── ...
-    │
-    ├── chroma_db/              # Vector database storage
-    ├── cache/                  # Response & embedding cache
-    └── uploads/                # User-uploaded documents
+├── logs/                          # Application logs
+├── tests/                         # Test suite
+│   ├── test_auth.py
+│   ├── test_validation.py
+│   ├── test_cache.py
+│   └── conftest.py
+│
+├── launcher.py                    # Launch complete system
+├── main.py                        # Launch Streamlit UI
+├── api_server.py                  # Launch FastAPI server
+├── requirements.txt               # Python dependencies
+├── .env.example                   # Environment variables template
+├── pytest.ini                     # Pytest configuration
+└── README.md                      # This file
 ```
 
-**Code Statistics**:
-- **Total Files**: 31 Python files
-- **Lines of Code**: ~5,565 lines
-- **Documentation**: ~224KB pre-embedded + ~4.8MB scraped
+## Advanced Features
 
-## Development
+### Response Modes
 
-### Setting Up Development Environment
+**Smart Answer Mode**
+- Balanced, practical responses with examples
+- Best for general questions and explanations
+- Includes code snippets when relevant
 
-```bash
-# Clone and setup
-git clone https://github.com/Shashank-Singh90/DocuMentor.git
-cd DocuMentor
+**Code Generation Mode**
+- Produces complete, working code implementations
+- Includes comments and best practices
+- Technology-specific optimizations
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+**Detailed Sources Mode**
+- Comprehensive documentation references
+- Multiple source citations
+- Deep technical details
 
-# Install in development mode
-pip install -r requirements.txt
+### Caching System
 
-# Enable debug mode
-echo "DEBUG=true" >> .env
-echo "LOG_LEVEL=DEBUG" >> .env
+DocuMentor implements a two-tier caching system for optimal performance:
 
-# Run tests
-python tests.py
+**Response Cache**
+- LRU eviction policy
+- SHA256-based key generation
+- Persistent JSON storage
+- Configurable TTL and max size
+
+**Embedding Cache**
+- Prevents recomputation of text embeddings
+- NumPy array serialization
+- 10,000 entry limit
+- Automatic cache warmup
+
+### Performance Optimizations
+
+1. **Batch Processing** - Parallel document chunking with configurable workers
+2. **File Locking** - Thread-safe ChromaDB access
+3. **Lazy Loading** - Components loaded on demand
+4. **Async Operations** - Non-blocking UI operations
+5. **Smart Chunking** - Language-aware text splitting
+6. **Connection Pooling** - Efficient HTTP client reuse
+
+### Security Features
+
+1. **API Key Authentication** - Timing-safe comparison prevents timing attacks
+2. **CORS Configuration** - Configurable allowed origins
+3. **Rate Limiting** - Per-endpoint request throttling
+4. **File Validation** - MIME type detection and size limits
+5. **Input Sanitization** - Query and filename cleaning
+6. **Environment Isolation** - Sensitive data in .env files
+
+## Monitoring & Metrics
+
+### Prometheus Metrics
+
+Access metrics at `http://127.0.0.1:8100/metrics`
+
+**Available Metrics:**
+- `rag_api_requests_total` - Total API requests by endpoint and status
+- `rag_api_request_duration_seconds` - Request duration histogram
+- `rag_vector_search_total` - Vector store search counter
+- `rag_llm_requests_total` - LLM requests by provider
+- `rag_document_chunks_total` - Document processing counter
+- `rag_cache_hits_total` / `rag_cache_misses_total` - Cache performance
+- `rag_auth_attempts_total` - Authentication attempts
+- `rag_rate_limit_hits_total` - Rate limit violations
+
+### Logging
+
+Logs are written to `./logs/rag_system.log` with rotation:
+- Max file size: 10 MB
+- Backup count: 5 files
+- Format: `[TIMESTAMP] [LEVEL] [MODULE] - MESSAGE`
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: Ollama connection failed**
+```
+Solution:
+1. Verify Ollama is running: curl http://localhost:11434/api/version
+2. Check OLLAMA_HOST in .env
+3. Ensure the model is pulled: ollama pull gemma2:2b
 ```
 
-### Running Tests
-
-```bash
-# Run all tests
-python tests.py
-
-# Test specific component
-python -c "from rag_system.core import VectorStore; vs = VectorStore(); print('Vector store OK')"
-
-# API health check
-curl http://127.0.0.1:8100/status
+**Issue: ChromaDB database locked**
+```
+Solution:
+1. Check for stale lock files in ./data/chroma_db/
+2. Ensure only one instance is running
+3. Restart the application
 ```
 
-### Adding New Features
-
-**1. Add a New LLM Provider**
-
-Edit `rag_system/core/generation/llm_handler.py`:
-```python
-class NewProviderHandler:
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-
-    def generate_answer(self, question: str, context: str) -> str:
-        # Implementation
-        pass
-
-    def generate_code(self, prompt: str, language: str) -> str:
-        # Implementation
-        pass
+**Issue: File upload fails**
+```
+Solution:
+1. Check file size (max 50 MB by default)
+2. Verify file type is supported
+3. Check MAX_FILE_SIZE in .env
+4. Ensure ./data/uploads/ directory exists
 ```
 
-Update `LLMHandler.get_available_providers()` to include new provider.
-
-**2. Add Document Format Support**
-
-Edit `rag_system/core/processing/document_processor.py`:
-```python
-def process_new_format(self, file_path: str) -> List[Dict]:
-    """Process new document format"""
-    # Implementation
-    pass
+**Issue: Out of memory errors**
+```
+Solution:
+1. Reduce BATCH_SIZE in .env
+2. Lower MAX_CHUNKS_PER_DOC
+3. Clear cache: rm -rf ./data/cache/*
+4. Use smaller LLM model (gemma2:2b instead of llama2)
 ```
 
-Add to `SUPPORTED_FORMATS` and routing logic.
-
-**3. Add API Endpoint**
-
-Edit `rag_system/api/server.py`:
-```python
-@app.post("/new-endpoint")
-async def new_endpoint(request: RequestModel):
-    """New endpoint documentation"""
-    # Implementation
-    pass
+**Issue: Slow response times**
+```
+Solution:
+1. Enable caching (ENABLE_CACHING=true)
+2. Reduce search_k parameter
+3. Use local Ollama instead of cloud APIs
+4. Increase MAX_WORKERS for parallel processing
+5. Check OLLAMA_TIMEOUT setting
 ```
 
-### Code Style Guidelines
+### Debug Mode
 
-- **PEP 8**: Follow Python style guide
-- **Type Hints**: Use typing annotations
-- **Docstrings**: Document all functions and classes
-- **Error Handling**: Use try-except with specific exceptions
-- **Logging**: Use structured logging for important events
-- **Comments**: Explain "why", not "what"
-
-## Performance
-
-### Optimization Features
-
-**1. Two-Tier Caching**
-- **Embedding Cache**: 10,000 entry capacity, disk-persistent
-- **Response Cache**: 1,000 entry LRU cache, in-memory
-- **Impact**: 95% faster for repeated queries
-
-**2. Parallel Processing**
-- ThreadPoolExecutor for document chunking
-- Concurrent embedding generation
-- Batch processing with optimal sizing
-
-**3. Smart Chunking**
-- Context-aware splitting (1000 chars, 200 overlap)
-- Code block preservation
-- Markdown structure awareness
-
-**4. Vector Search Optimization**
-- Similarity threshold filtering
-- Technology-specific metadata filtering
-- Efficient ChromaDB persistence
-
-### Benchmarks
-
-Typical performance on standard hardware (8GB RAM, i5 processor):
-
-| Operation | Time | Cache Hit |
-|-----------|------|-----------|
-| Query (first time) | 800-1200ms | N/A |
-| Query (cached) | 50-100ms | Yes |
-| Document upload (PDF, 10 pages) | 2-3s | N/A |
-| Embedding generation (1000 chars) | 100-150ms | N/A |
-| Code generation | 3-5s | Varies |
-
-### Scaling Considerations
-
-- **Vector Database**: ChromaDB handles millions of documents
-- **Concurrent Users**: FastAPI supports hundreds of concurrent connections
-- **Memory**: ~500MB base + ~1GB per 100K documents
-- **Disk**: ~100MB per 50K documents in vector DB
-
-## Testing
-
-### Test Suite
-
-Run comprehensive tests:
-```bash
-python tests.py
-```
-
-**Test Coverage**:
-1. **System Imports**: Verify all modules load correctly
-2. **Configuration**: Validate settings and environment
-3. **Vector Store**: Test search, insertion, retrieval
-4. **Document Processing**: Test all supported formats
-5. **LLM Providers**: Check connectivity and generation
-6. **API Server**: Test all endpoints
-7. **Performance**: Benchmark critical operations
-
-### Manual Testing
-
-**Test Web Interface**:
-```bash
-python main.py --port 8506
-# Visit http://localhost:8506
-# Try: "How do I use FastAPI dependencies?"
-```
-
-**Test API**:
-```bash
-python api_server.py --port 8100
-# Visit http://localhost:8100/docs
-# Try example requests from interactive docs
-```
-
-**Test Document Upload**:
-```bash
-# Via API
-curl -X POST http://localhost:8100/upload \
-  -F "file=@test.pdf" \
-  -F "technology=python"
-
-# Via Web UI
-# Drag and drop a document in the sidebar
-```
-
-### Debugging
-
-Enable debug mode:
+Enable debug logging:
 ```bash
 # In .env
 DEBUG=true
 LOG_LEVEL=DEBUG
 ```
 
-Check logs:
+View real-time logs:
 ```bash
-# Logs are printed to console with timestamps
-# Look for ERROR or WARNING messages
+tail -f ./logs/rag_system.log
 ```
 
-Common issues:
-- **ChromaDB locked**: Remove `data/chroma_db/*.lock` files
-- **Ollama not responding**: Check `ollama serve` is running
-- **Import errors**: Reinstall dependencies `pip install -r requirements.txt`
-- **Port in use**: Change ports in `.env` or kill process
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_auth.py
+
+# Run with coverage
+pytest --cov=rag_system --cov-report=html
+
+# Run only unit tests
+pytest -m unit
+
+# Run integration tests
+pytest -m integration
+```
+
+### Code Style
+
+This project follows PEP 8 style guidelines. Use type hints and docstrings for all functions.
+
+```python
+def process_document(
+    file_path: str,
+    chunk_size: int = 1000
+) -> list[dict]:
+    """
+    Process a document and return chunks with metadata.
+
+    Args:
+        file_path: Path to the document file
+        chunk_size: Maximum size of each chunk in characters
+
+    Returns:
+        List of dictionaries containing chunk text and metadata
+    """
+    ...
+```
+
+### Adding New LLM Providers
+
+1. Extend `LLMHandler` class in `rag_system/core/generation/llm_handler.py`
+2. Add provider-specific configuration in `rag_system/config/settings.py`
+3. Update provider selection logic in `llm_handler.py`
+4. Add tests in `tests/test_llm_handler.py`
+
+### Adding New Document Types
+
+1. Add file extension to `ALLOWED_EXTENSIONS` in settings
+2. Implement processor in `rag_system/core/processing/document_processor.py`
+3. Update MIME type mapping in `api/middleware/validation.py`
+4. Add tests for the new format
+
+## Deployment
+
+### Production Deployment
+
+1. **Set production environment variables**
+```bash
+DEBUG=false
+API_KEY=your-secure-api-key-here
+LOG_LEVEL=INFO
+```
+
+2. **Use a process manager**
+```bash
+# Using systemd
+sudo systemctl start documentor
+
+# Using PM2
+pm2 start launcher.py --name documentor
+
+# Using Docker (see Docker section)
+```
+
+3. **Configure reverse proxy (Nginx example)**
+```nginx
+server {
+    listen 80;
+    server_name documentor.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8506;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    location /api {
+        proxy_pass http://127.0.0.1:8100;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+4. **Enable monitoring**
+- Configure Prometheus to scrape `/metrics` endpoint
+- Set up Grafana dashboards for visualization
+- Configure alerting for critical errors
+
+### Docker Deployment
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8100 8506
+
+CMD ["python", "launcher.py"]
+```
+
+```bash
+# Build image
+docker build -t documentor .
+
+# Run container
+docker run -d \
+  -p 8100:8100 \
+  -p 8506:8506 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  --env-file .env \
+  documentor
+```
+
+## Performance Benchmarks
+
+Based on typical usage patterns:
+
+| Operation | Response Time | Notes |
+|-----------|--------------|-------|
+| Simple query (cached) | ~100ms | Cache hit |
+| Simple query (uncached) | ~2-3s | Ollama gemma2:2b |
+| Complex query | ~5-7s | Multiple sources |
+| Code generation | ~3-5s | Complete function |
+| Document upload (10MB PDF) | ~5-10s | Including chunking |
+| Web search query | ~4-6s | With Firecrawl |
+
+Hardware: Intel i5, 16GB RAM, SSD
 
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
 
-### How to Contribute
-
-1. **Fork the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/DocuMentor.git
-   ```
-
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-
-3. **Make your changes**
-   - Follow code style guidelines
-   - Add tests for new features
-   - Update documentation
-
-4. **Test your changes**
-   ```bash
-   python tests.py
-   ```
-
-5. **Commit your changes**
-   ```bash
-   git commit -m "Add amazing feature"
-   ```
-
-6. **Push to your fork**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-
-7. **Open a Pull Request**
-   - Describe your changes
-   - Link any related issues
-   - Wait for review
-
-### Areas for Contribution
-
-- **New LLM providers**: Add support for Claude, Llama, etc.
-- **Document formats**: Add support for more file types
-- **UI improvements**: Enhance the Streamlit interface
-- **Performance**: Optimize caching and search
-- **Documentation**: Improve guides and examples
-- **Tests**: Increase test coverage
-- **Integrations**: Add webhooks, notifications, etc.
-
-### Code Review Process
-
-1. Automated tests must pass
-2. Code must follow style guidelines
-3. Documentation must be updated
-4. At least one maintainer approval required
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with tests
+4. Ensure tests pass (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## License
 
-MIT License
-
-Copyright (c) 2025 Shashank-Singh90
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
-- **ChromaDB**: Vector database infrastructure
-- **LangChain**: RAG framework and document processing
-- **Sentence Transformers**: Efficient embedding models
-- **FastAPI**: Modern, high-performance API framework
-- **Streamlit**: Rapid web interface development
-- **Ollama**: Local LLM infrastructure
+- **LangChain** - LLM orchestration framework
+- **ChromaDB** - Efficient vector database
+- **Streamlit** - Beautiful web UI framework
+- **FastAPI** - Modern API framework
+- **Ollama** - Local LLM inference
+- **sentence-transformers** - High-quality embeddings
 
-## Support & Contact
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/Shashank-Singh90/DocuMentor/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Shashank-Singh90/DocuMentor/discussions)
-- **Documentation**: [API Docs](http://localhost:8100/docs) (when running)
+- **Documentation**: This README
+- **API Documentation**: http://127.0.0.1:8100/docs (when running)
 
 ## Roadmap
 
-### Current Version: 2.0.0
-
-### Planned Features
-- [ ] Claude AI integration
-- [ ] Streaming responses for long answers
-- [ ] Multi-language UI support
-- [ ] User authentication and sessions
-- [ ] Document versioning
-- [ ] Advanced analytics dashboard
-- [ ] Docker containerization
-- [ ] Kubernetes deployment templates
-- [ ] Plugin system for extensibility
-- [ ] GraphQL API option
+- [ ] Multi-user support with authentication
+- [ ] Conversation history and context
+- [ ] Advanced filtering and search operators
+- [ ] Custom model fine-tuning
+- [ ] Integration with GitHub, GitLab, Confluence
+- [ ] Mobile app
+- [ ] Multi-language support for UI
+- [ ] Real-time collaboration features
 
 ---
 
-**Built with ❤️ by [Shashank Singh](https://github.com/Shashank-Singh90)**
-
-*Making technical documentation accessible and intelligent*
+**Built with by Shashank Singh** | Version 2.0.0
