@@ -1,5 +1,6 @@
 """
-Professional Configuration Management for RAG System
+Configuration Management for DocuMentor
+Using Pydantic for settings - it's pretty nice for validation and env vars
 """
 
 from typing import List, Optional
@@ -9,7 +10,7 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    """Application settings with environment variable support"""
+    """App settings - loads from .env file automatically"""
 
     # Application Info
     app_name: str = Field(default="RAG System", description="Application name")
@@ -18,31 +19,33 @@ class Settings(BaseSettings):
     # Server Configuration
     host: str = Field(default="127.0.0.1", description="Server host")
     port: int = Field(default=8501, description="Server port")
-    debug: bool = Field(default=False, description="Debug mode")
+    debug: bool = Field(default=False, description="Debug mode - don't use in production!")
 
     # CORS Configuration
+    # added common dev ports here
     cors_origins: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:8501", "http://127.0.0.1:8501", "http://127.0.0.1:8506"],
         description="Allowed CORS origins (use ['*'] only for development)"
     )
-    api_key: Optional[str] = Field(default=None, description="API key for authentication")
+    api_key: Optional[str] = Field(default=None, description="API key for authentication - set this in production!")
 
     # Ollama Configuration
     ollama_host: str = Field(default="localhost:11434", description="Ollama server host")
-    ollama_model: str = Field(default="gemma2:2b", description="Default Ollama model")
-    ollama_timeout: int = Field(default=120, description="Ollama timeout in seconds")
+    ollama_model: str = Field(default="gemma2:2b", description="gemma2:2b is fast and good enough for most things")
+    ollama_timeout: int = Field(default=120, description="Ollama can be slow, so generous timeout")
 
     # Vector Database Configuration
     vectordb_path: str = Field(default="./data/vectordb", description="Vector database path")
     chroma_persist_directory: str = Field(default="./data/chroma_db", description="ChromaDB persist directory")
     collection_name: str = Field(default="documents", description="Collection name")
-    embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Embedding model")
-    embedding_dimension: int = Field(default=384, description="Embedding dimension")
+    embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Good balance of speed and quality")
+    embedding_dimension: int = Field(default=384, description="Dimension for all-MiniLM-L6-v2")
 
     # Chunking Configuration
-    chunk_size: int = Field(default=1000, description="Default chunk size")
-    chunk_overlap: int = Field(default=200, description="Chunk overlap")
-    max_chunks_per_doc: int = Field(default=1000, description="Maximum chunks per document")
+    # these values worked well in testing
+    chunk_size: int = Field(default=1000, description="Default chunk size in chars")
+    chunk_overlap: int = Field(default=200, description="Chunk overlap - helps with context")
+    max_chunks_per_doc: int = Field(default=1000, description="Safety limit per document")
 
     # Caching Configuration
     cache_dir: str = Field(default="./data/cache", description="Cache directory")
