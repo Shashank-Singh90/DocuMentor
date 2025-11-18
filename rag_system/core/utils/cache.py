@@ -7,7 +7,6 @@ import json
 import time
 from typing import Dict, Optional, Any
 from pathlib import Path
-import pickle
 from rag_system.core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +18,7 @@ class ResponseCache:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.max_cache_size = max_cache_size
-        self.cache_file = self.cache_dir / "response_cache.pkl"
+        self.cache_file = self.cache_dir / "response_cache.json"
         self.metadata_file = self.cache_dir / "cache_metadata.json"
 
         # Load existing cache
@@ -29,11 +28,11 @@ class ResponseCache:
         logger.info(f"Response cache initialized with {len(self.cache)} entries")
 
     def _load_cache(self) -> Dict:
-        """Load cache from disk"""
+        """Load cache from disk using secure JSON format"""
         try:
             if self.cache_file.exists():
-                with open(self.cache_file, 'rb') as f:
-                    return pickle.load(f)
+                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
         except Exception as e:
             logger.warning(f"Failed to load cache: {e}")
         return {}
@@ -49,12 +48,12 @@ class ResponseCache:
         return {"access_times": {}, "creation_times": {}}
 
     def _save_cache(self):
-        """Save cache to disk"""
+        """Save cache to disk using secure JSON format"""
         try:
-            with open(self.cache_file, 'wb') as f:
-                pickle.dump(self.cache, f)
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(self.cache, f, indent=2, ensure_ascii=False)
 
-            with open(self.metadata_file, 'w') as f:
+            with open(self.metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(self.metadata, f, indent=2)
 
         except Exception as e:
@@ -163,17 +162,15 @@ class ResponseCache:
             if hasattr(self, 'cache_file') and hasattr(self, 'cache') and hasattr(self, '_save_cache'):
                 # Use Path objects that have been cached
                 if hasattr(self, 'cache') and hasattr(self, 'metadata'):
-                    import pickle
-                    import json
                     try:
-                        with self.cache_file.open('wb') as f:
-                            pickle.dump(self.cache, f)
-                        with self.metadata_file.open('w') as f:
+                        with self.cache_file.open('w', encoding='utf-8') as f:
+                            json.dump(self.cache, f, indent=2, ensure_ascii=False)
+                        with self.metadata_file.open('w', encoding='utf-8') as f:
                             json.dump(self.metadata, f, indent=2)
-                    except:
-                        pass
-        except:
-            pass
+                    except (OSError, IOError, PermissionError) as e:
+                        logger.debug(f"Could not save cache on cleanup: {e}")
+        except Exception as e:
+            logger.debug(f"Error during cache cleanup: {e}")
 
 # Global cache instance
 response_cache = ResponseCache()

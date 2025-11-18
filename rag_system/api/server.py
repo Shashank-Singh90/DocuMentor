@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import json
 import io
+import time
 from pathlib import Path
 
 from rag_system.core import SmartChunker, VectorStore
@@ -83,6 +84,9 @@ class TechnologyStatsResponse(BaseModel):
 def create_enhanced_fastapi_app() -> FastAPI:
     """Create and configure enhanced FastAPI application v2"""
 
+    # Initialize components
+    settings = get_settings()
+
     app = FastAPI(
         title="DocuMentor API",
         description="AI-Powered Documentation Assistant API with smart search, code generation, and technology-specific filtering",
@@ -91,17 +95,14 @@ def create_enhanced_fastapi_app() -> FastAPI:
         redoc_url="/redoc"
     )
 
-    # Configure CORS
+    # Configure CORS with secure defaults
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
+        allow_origins=settings.cors_origins,  # Configured via environment variables
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
-
-    # Initialize components
-    settings = get_settings()
     vector_store = VectorStore()
     chunker = SmartChunker()
 
@@ -161,7 +162,9 @@ def create_enhanced_fastapi_app() -> FastAPI:
                         "available": len(tech_results) > 0,
                         "sample_topics": [r.get('content', '')[:100] + "..." for r in tech_results[:2]]
                     })
-                except:
+                except Exception as e:
+                    # Log the error but continue processing other technologies
+                    print(f"Warning: Failed to check technology {tech_name}: {e}")
                     technologies.append({
                         "key": tech_key,
                         "name": tech_name,

@@ -42,7 +42,7 @@ class ModernSystemLauncher:
                 if response.status_code == 200:
                     print("✅ FastAPI is ready!")
                     return True
-            except:
+            except (requests.RequestException, ConnectionError, TimeoutError):
                 pass
 
             time.sleep(1)

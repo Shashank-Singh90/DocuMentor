@@ -30,8 +30,8 @@ class ChromaVectorStore:
             logger.warning("Removing stale lock file...")
             try:
                 lock_file.unlink()  # Nuclear option but works
-            except:
-                pass  # Sometimes Windows locks it
+            except (OSError, PermissionError) as e:
+                logger.debug(f"Could not remove lock file (Windows may have locked it): {e}")
         
         # Initialize client with modern approach
         self.client = chromadb.PersistentClient(path=self.persist_directory)
@@ -60,15 +60,17 @@ class ChromaVectorStore:
                 name=self.collection_name
             )
             logger.info(f"Loaded collection: {self.collection.count()} docs")
-        except:
+        except ValueError:
+            # Collection doesn't exist, create it
             try:
                 self.collection = self.client.create_collection(
                     name=self.collection_name,
                     embedding_function=self.embedding_function
                 )
                 logger.info("Created new collection")
-            except:
+            except Exception as e:
                 # If creation fails, try to get existing collection without embedding function
+                logger.warning(f"Collection creation failed: {e}, attempting to load existing")
                 self.collection = self.client.get_collection(name=self.collection_name)
                 logger.info(f"Using existing collection: {self.collection.count()} docs")
     
@@ -190,13 +192,14 @@ class ChromaVectorStore:
                 if meta and 'source' in meta:
                     src = meta['source']
                     sources[src] = sources.get(src, 0) + 1
-            
+
             return {
                 'total_chunks': count,
                 'sources': sources,
                 'sample_size': len(sample.get('ids', []))
             }
-        except:
+        except Exception as e:
+            logger.error(f"Failed to get collection stats: {e}")
             return {'total_chunks': 0, 'sources': {}}
 
     def _calculate_optimal_batch_size(self, texts: List[str]) -> int:

@@ -47,11 +47,15 @@ class WebSearchProvider:
         if HAS_LOCAL_FIRECRAWL:
             try:
                 # Try to initialize local Firecrawl
-                # For local development, you might need to set up API key and URL
-                api_key = os.getenv("FIRECRAWL_API_KEY", "local-dev-key")
+                # Get API key from settings or environment, no hardcoded fallback
+                api_key = getattr(settings, 'firecrawl_api_key', None) or os.getenv("FIRECRAWL_API_KEY")
                 api_url = os.getenv("FIRECRAWL_API_URL", "http://localhost:3002")
-                self.local_firecrawl = Firecrawl(api_key=api_key, api_url=api_url)
-                logger.info("Local Firecrawl client initialized successfully")
+
+                if api_key:
+                    self.local_firecrawl = Firecrawl(api_key=api_key, api_url=api_url)
+                    logger.info("Local Firecrawl client initialized successfully")
+                else:
+                    logger.debug("Firecrawl API key not configured")
             except Exception as e:
                 logger.warning(f"Failed to initialize local Firecrawl: {e}")
                 self.local_firecrawl = None

@@ -95,7 +95,7 @@ class OllamaProvider(BaseLLMProvider):
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             return response.status_code == 200
-        except:
+        except (requests.RequestException, ConnectionError, TimeoutError):
             return False
 
 class OpenAIProvider(BaseLLMProvider):
@@ -103,15 +103,17 @@ class OpenAIProvider(BaseLLMProvider):
 
     def __init__(self):
         self.api_key = settings.openai_api_key
+        self.client = None
         if self.api_key and HAS_OPENAI:
-            openai.api_key = self.api_key
+            # Use OpenAI v1.x client
+            self.client = openai.OpenAI(api_key=self.api_key)
 
     def generate_response(self, prompt: str, context: List[Dict]) -> str:
         """Generate response using OpenAI"""
         if not HAS_OPENAI:
             return "Error: OpenAI library not available"
 
-        if not self.api_key:
+        if not self.client:
             return "Error: OpenAI API key not configured"
 
         try:
@@ -135,7 +137,8 @@ class OpenAIProvider(BaseLLMProvider):
                 }
             ]
 
-            response = openai.ChatCompletion.create(
+            # Use OpenAI v1.x API syntax
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=messages,
                 max_tokens=1000,
@@ -150,7 +153,7 @@ class OpenAIProvider(BaseLLMProvider):
 
     def is_available(self) -> bool:
         """Check if OpenAI is available"""
-        return HAS_OPENAI and bool(self.api_key)
+        return HAS_OPENAI and bool(self.client)
 
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini provider"""

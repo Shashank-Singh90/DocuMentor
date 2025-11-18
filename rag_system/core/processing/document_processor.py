@@ -151,19 +151,23 @@ class EnhancedDocumentProcessor:
         try:
             if is_bytes:
                 pdf_file = io.BytesIO(source)
+                reader = pypdf.PdfReader(pdf_file)
+                content = []
+
+                for page_num, page in enumerate(reader.pages):
+                    text = page.extract_text()
+                    if text.strip():
+                        content.append(f"[Page {page_num + 1}]\n{text}")
             else:
-                pdf_file = open(source, 'rb')
+                # Use context manager to ensure file is properly closed
+                with open(source, 'rb') as pdf_file:
+                    reader = pypdf.PdfReader(pdf_file)
+                    content = []
 
-            reader = pypdf.PdfReader(pdf_file)
-            content = []
-
-            for page_num, page in enumerate(reader.pages):
-                text = page.extract_text()
-                if text.strip():
-                    content.append(f"[Page {page_num + 1}]\n{text}")
-
-            if not is_bytes:
-                pdf_file.close()
+                    for page_num, page in enumerate(reader.pages):
+                        text = page.extract_text()
+                        if text.strip():
+                            content.append(f"[Page {page_num + 1}]\n{text}")
 
             return {
                 'content': '\n\n'.join(content),

@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     port: int = Field(default=8501, description="Server port")
     debug: bool = Field(default=False, description="Debug mode")
 
+    # CORS Configuration
+    cors_origins: List[str] = Field(
+        default=["http://localhost:3000", "http://localhost:8501", "http://127.0.0.1:8501", "http://127.0.0.1:8506"],
+        description="Allowed CORS origins (use ['*'] only for development)"
+    )
+    api_key: Optional[str] = Field(default=None, description="API key for authentication")
+
     # Ollama Configuration
     ollama_host: str = Field(default="localhost:11434", description="Ollama server host")
     ollama_model: str = Field(default="gemma2:2b", description="Default Ollama model")
