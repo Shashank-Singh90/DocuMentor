@@ -5,7 +5,7 @@ import hashlib
 import re
 import json
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from rag_system.core.utils.logger import get_logger
 from rag_system.config.settings import get_settings
@@ -52,31 +52,34 @@ class SmartChunker:
     def chunk_documents_from_files(self) -> List[Dict]:
         """Load documents from files and chunk them"""
         logger.info("📚 Loading documents from files...")
-        
+
         documents = []
-        
-        # Load LangChain docs
-        langchain_file = settings.RAW_DATA_DIR / "langchain" / "langchain_docs.json"
+
+        # Use upload directory to look for processed documents
+        raw_data_dir = Path(settings.upload_dir).parent / "raw"
+
+        # Load LangChain docs if they exist
+        langchain_file = raw_data_dir / "langchain" / "langchain_docs.json"
         if langchain_file.exists():
             with open(langchain_file, 'r', encoding='utf-8') as f:
                 langchain_docs = json.load(f)
                 documents.extend(langchain_docs)
                 logger.info(f"📄 Loaded {len(langchain_docs)} LangChain documents")
-        
-        # Load FastAPI docs
-        fastapi_file = settings.RAW_DATA_DIR / "fastapi" / "fastapi_docs.json"
+
+        # Load FastAPI docs if they exist
+        fastapi_file = raw_data_dir / "fastapi" / "fastapi_docs.json"
         if fastapi_file.exists():
             with open(fastapi_file, 'r', encoding='utf-8') as f:
                 fastapi_docs = json.load(f)
                 documents.extend(fastapi_docs)
                 logger.info(f"📄 Loaded {len(fastapi_docs)} FastAPI documents")
-        
+
         if not documents:
-            logger.error("❌ No documents found! Run the scrapers first.")
+            logger.warning("⚠️ No documents found in raw data directory. This method expects pre-scraped JSON files.")
             return []
-        
+
         logger.info(f"📚 Total documents loaded: {len(documents)}")
-        
+
         # Chunk all documents
         return self.chunk_documents(documents)
         
@@ -94,7 +97,8 @@ class SmartChunker:
         # Process in batches to avoid overwhelming the system
         batch_size = min(10, len(documents))  # Optimal batch size
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        # Use configured max_workers from settings
+        with ThreadPoolExecutor(max_workers=settings.max_workers) as executor:
             for i in range(0, len(documents), batch_size):
                 batch = documents[i:i + batch_size]
                 logger.info(f"🔪 Processing batch {i//batch_size + 1}/{(len(documents) + batch_size - 1)//batch_size}")

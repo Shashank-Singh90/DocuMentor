@@ -4,7 +4,6 @@ Caches embeddings to avoid recomputation and improve performance
 """
 import hashlib
 import json
-import pickle
 import time
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -21,7 +20,7 @@ class EmbeddingCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.max_cache_size = max_cache_size
 
-        self.cache_file = self.cache_dir / "embeddings.pkl"
+        self.cache_file = self.cache_dir / "embeddings.json"
         self.metadata_file = self.cache_dir / "embedding_metadata.json"
 
         # Load existing cache
@@ -31,11 +30,13 @@ class EmbeddingCache:
         logger.info(f"Embedding cache initialized with {len(self.cache)} entries")
 
     def _load_cache(self) -> Dict:
-        """Load embedding cache from disk"""
+        """Load embedding cache from disk using secure JSON format"""
         try:
             if self.cache_file.exists():
-                with open(self.cache_file, 'rb') as f:
-                    cache = pickle.load(f)
+                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                    # Convert lists back to numpy arrays
+                    cache = {k: np.array(v) for k, v in cache_data.items()}
                     logger.debug(f"Loaded {len(cache)} cached embeddings")
                     return cache
         except Exception as e:
@@ -53,14 +54,18 @@ class EmbeddingCache:
         return {"access_times": {}, "creation_times": {}, "text_lengths": {}}
 
     def _save_cache(self):
-        """Save cache to disk"""
+        """Save cache to disk using secure JSON format"""
         try:
+            # Convert numpy arrays to lists for JSON serialization
+            cache_data = {k: v.tolist() if isinstance(v, np.ndarray) else v
+                         for k, v in self.cache.items()}
+
             # Save embeddings
-            with open(self.cache_file, 'wb') as f:
-                pickle.dump(self.cache, f)
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f)
 
             # Save metadata
-            with open(self.metadata_file, 'w') as f:
+            with open(self.metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(self.metadata, f, indent=2)
 
             logger.debug(f"Saved embedding cache with {len(self.cache)} entries")
@@ -201,25 +206,27 @@ class EmbeddingCache:
             if self.cache_file.exists():
                 size_bytes = self.cache_file.stat().st_size
                 return size_bytes / (1024 * 1024)
-        except:
-            pass
+        except (OSError, IOError) as e:
+            logger.debug(f"Could not estimate cache size: {e}")
         return 0.0
 
     def __del__(self):
         """Save cache when object is destroyed"""
         try:
             if hasattr(self, 'cache_file') and hasattr(self, 'cache') and hasattr(self, 'metadata'):
-                import pickle
-                import json
                 try:
-                    with self.cache_file.open('wb') as f:
-                        pickle.dump(self.cache, f)
-                    with self.metadata_file.open('w') as f:
+                    # Convert numpy arrays to lists for JSON serialization
+                    cache_data = {k: v.tolist() if isinstance(v, np.ndarray) else v
+                                 for k, v in self.cache.items()}
+
+                    with self.cache_file.open('w', encoding='utf-8') as f:
+                        json.dump(cache_data, f)
+                    with self.metadata_file.open('w', encoding='utf-8') as f:
                         json.dump(self.metadata, f, indent=2)
-                except:
-                    pass
-        except:
-            pass
+                except (OSError, IOError, PermissionError) as e:
+                    logger.debug(f"Could not save embedding cache on cleanup: {e}")
+        except Exception as e:
+            logger.debug(f"Error during embedding cache cleanup: {e}")
 
 # Global embedding cache instance
 embedding_cache = EmbeddingCache()

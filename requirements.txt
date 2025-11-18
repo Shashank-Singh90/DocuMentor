@@ -3,6 +3,13 @@
 
 # Web Framework
 streamlit>=1.29.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+slowapi>=0.1.9
+
+# Security & Rate Limiting
+python-multipart>=0.0.9
+python-magic>=0.4.27
 
 # Vector Database
 chromadb>=1.1.0
@@ -29,10 +36,16 @@ python-docx>=1.1.0
 # HTTP & API
 requests>=2.32.0
 httpx>=0.28.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
 
 # Development & Monitoring
 tqdm>=4.67.0
 rich>=13.9.0
+prometheus-client>=0.20.0
+
+# File Locking & Concurrency
+filelock>=3.13.0
 
 # Enhanced Features
 openai>=1.0.0

@@ -11,9 +11,11 @@ from chromadb.utils import embedding_functions
 import time
 from pathlib import Path
 from typing import List, Dict, Optional
+from filelock import FileLock, Timeout
 from rag_system.core.utils.logger import get_logger
 from rag_system.core.utils.embedding_cache import embedding_cache
 from rag_system.config.settings import get_settings
+from rag_system.core.constants import CHROMADB_RETRY_ATTEMPTS, CHROMADB_RETRY_DELAY
 
 settings = get_settings()
 
@@ -23,23 +25,24 @@ class ChromaVectorStore:
     def __init__(self):
         self.persist_directory = settings.chroma_persist_directory
         self.collection_name = settings.collection_name
-        
-        # Chroma lock file issue - happens after crashes
-        lock_file = Path(self.persist_directory) / "chroma.lock"
-        if lock_file.exists():
-            logger.warning("Removing stale lock file...")
-            try:
-                lock_file.unlink()  # Nuclear option but works
-            except:
-                pass  # Sometimes Windows locks it
-        
-        # Initialize client with modern approach
-        self.client = chromadb.PersistentClient(path=self.persist_directory)
-        
+
+        # Set up file locking - learned this the hard way after dealing with corruption issues
+        lock_dir = Path(self.persist_directory).parent / "locks"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        self.lock_file_path = lock_dir / f"{self.collection_name}.lock"
+        self.lock = FileLock(self.lock_file_path, timeout=10)
+
+        logger.debug(f"Using lock file: {self.lock_file_path}")
+
+        # Initialize client with proper locking
+        with self.lock:
+            logger.debug("Acquired lock for ChromaDB initialization")
+            self.client = chromadb.PersistentClient(path=self.persist_directory)
+
         # Get optimized embedding function with caching
         try:
             base_embedding = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"  # Fast, high-quality embeddings
+                model_name="all-MiniLM-L6-v2"  # this model is pretty good and fast
             )
             self.embedding_function = CachedEmbeddingFunction(
                 base_embedding,
@@ -60,73 +63,80 @@ class ChromaVectorStore:
                 name=self.collection_name
             )
             logger.info(f"Loaded collection: {self.collection.count()} docs")
-        except:
+        except ValueError:
+            # Collection doesn't exist, create it
             try:
                 self.collection = self.client.create_collection(
                     name=self.collection_name,
                     embedding_function=self.embedding_function
                 )
                 logger.info("Created new collection")
-            except:
+            except Exception as e:
                 # If creation fails, try to get existing collection without embedding function
+                logger.warning(f"Collection creation failed: {e}, attempting to load existing")
                 self.collection = self.client.get_collection(name=self.collection_name)
                 logger.info(f"Using existing collection: {self.collection.count()} docs")
     
     def add_documents(self, texts: List[str], metadatas: List[dict], ids: List[str]):
         """Add documents - using upsert because add() is flaky
-        
+
         ChromaDB bugs we're working around:
         - None values crash it (replace with "")
         - Unicode > U+10000 breaks indexing
         - Batches > 100 timeout randomly
         """
-        # Optimized batch size based on document size and system memory
-        BATCH_SIZE = self._calculate_optimal_batch_size(texts)
-        
-        added = 0
-        for i in range(0, len(texts), BATCH_SIZE):
-            batch_end = min(i + BATCH_SIZE, len(texts))
-            
-            # Clean metadata - Chroma hates None
-            clean_meta = []
-            for m in metadatas[i:batch_end]:
-                # This is dumb but necessary
-                clean = {}
-                for k, v in m.items():
-                    if v is None:
-                        clean[k] = ""
-                    elif isinstance(v, str):
-                        # Strip high unicode that breaks Chroma
-                        clean[k] = v.encode('utf-8', 'ignore').decode('utf-8')
-                    else:
-                        clean[k] = v
-                clean_meta.append(clean)
-            
-            # Clean texts too
-            clean_texts = []
-            for t in texts[i:batch_end]:
-                # Remove null bytes and high unicode
-                cleaned = t.replace('\x00', '').encode('utf-8', 'ignore').decode('utf-8')
-                clean_texts.append(cleaned)
-            
-            # Try to add with retry
-            for retry in range(3):  # Magic retry number
-                try:
-                    self.collection.upsert(
-                        documents=clean_texts,
-                        metadatas=clean_meta,
-                        ids=ids[i:batch_end]
-                    )
-                    added += len(clean_texts)
-                    break
-                except Exception as e:
-                    if "quota" in str(e).lower():
-                        # Hit the undocumented 10K limit
-                        logger.error("ChromaDB quota - need cleanup")
-                        raise
-                    elif retry < 2:
-                        # Sometimes works on retry
-                        logger.warning(f"Retry {retry + 1} for batch {i//BATCH_SIZE}")
+        # Use file locking to prevent concurrent writes
+        with self.lock:
+            logger.debug(f"Acquired lock for adding {len(texts)} documents")
+
+            # Optimized batch size based on document size and system memory
+            BATCH_SIZE = self._calculate_optimal_batch_size(texts)
+
+            added = 0
+            for i in range(0, len(texts), BATCH_SIZE):
+                batch_end = min(i + BATCH_SIZE, len(texts))
+
+                # Clean metadata - Chroma hates None
+                clean_meta = []
+                for m in metadatas[i:batch_end]:
+                    # Sanitize metadata for ChromaDB compatibility
+                    clean = {}
+                    for k, v in m.items():
+                        if v is None:
+                            clean[k] = ""
+                        elif isinstance(v, str):
+                            # Strip high unicode that breaks Chroma
+                            clean[k] = v.encode('utf-8', 'ignore').decode('utf-8')
+                        else:
+                            clean[k] = v
+                    clean_meta.append(clean)
+
+                # Clean texts too
+                clean_texts = []
+                for t in texts[i:batch_end]:
+                    # Remove null bytes and high unicode
+                    cleaned = t.replace('\x00', '').encode('utf-8', 'ignore').decode('utf-8')
+                    clean_texts.append(cleaned)
+
+                # Try to add with retry logic
+                for retry in range(CHROMADB_RETRY_ATTEMPTS):
+                    try:
+                        self.collection.upsert(
+                            documents=clean_texts,
+                            metadatas=clean_meta,
+                            ids=ids[i:batch_end]
+                        )
+                        added += len(clean_texts)
+                        break
+                    except Exception as e:
+                        if "quota" in str(e).lower():
+                            # Hit ChromaDB document limit
+                            logger.error(f"ChromaDB quota exceeded (limit: {CHROMADB_DOCUMENT_LIMIT})")
+                            raise
+                        elif retry < CHROMADB_RETRY_ATTEMPTS - 1:
+                            # Retry with exponential backoff
+                            wait_time = CHROMADB_RETRY_DELAY * (2 ** retry)
+                            logger.warning(f"Retry {retry + 1}/{CHROMADB_RETRY_ATTEMPTS} for batch {i//BATCH_SIZE}, waiting {wait_time}s")
                         time.sleep(0.5 * (retry + 1))  # Backoff
                     else:
                         logger.error(f"Failed batch {i//BATCH_SIZE}: {e}")
@@ -190,13 +200,14 @@ class ChromaVectorStore:
                 if meta and 'source' in meta:
                     src = meta['source']
                     sources[src] = sources.get(src, 0) + 1
-            
+
             return {
                 'total_chunks': count,
                 'sources': sources,
                 'sample_size': len(sample.get('ids', []))
             }
-        except:
+        except Exception as e:
+            logger.error(f"Failed to get collection stats: {e}")
             return {'total_chunks': 0, 'sources': {}}
 
     def _calculate_optimal_batch_size(self, texts: List[str]) -> int:
