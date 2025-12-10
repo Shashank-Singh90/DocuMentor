@@ -17,8 +17,8 @@ def test_imports():
     """Test if all system components can be imported"""
     print("Testing system imports...")
     try:
-        from rag_system.core import SmartChunker, VectorStore
-        from rag_system.core.generation.llm_handler import enhanced_llm_handler
+        from rag_system.core import DocumentChunker, VectorStore
+        from rag_system.core.generation.llm_handler import llm_service
         from rag_system.core.processing import document_processor
         from rag_system.core.search import web_search_provider
         from rag_system.config import get_settings
@@ -81,9 +81,9 @@ def test_llm_providers():
     """Test LLM providers"""
     print("Testing LLM providers...")
     try:
-        from rag_system.core.generation.llm_handler import enhanced_llm_handler
-        provider_status = enhanced_llm_handler.get_provider_status()
-        available_providers = enhanced_llm_handler.get_available_providers()
+        from rag_system.core.generation.llm_handler import llm_service
+        provider_status = llm_service.get_provider_status()
+        available_providers = llm_service.get_available_providers()
         print(f"[PASS] LLM handler initialized")
         print(f"   Available providers: {len(available_providers)}")
         for provider, available in provider_status.items():

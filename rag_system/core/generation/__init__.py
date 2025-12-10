@@ -2,6 +2,6 @@
 Text Generation Module
 """
 
-from .llm_handler import enhanced_llm_handler as LLMHandler
+from .llm_handler import llm_service as LLMService
 
-__all__ = ['LLMHandler']
+__all__ = ['LLMService']

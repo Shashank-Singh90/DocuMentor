@@ -1,0 +1,63 @@
+DocuMentor Comprehensive Test Suite
+==================================================
+
+System Imports:
+------------------------------
+Testing system imports...
+2025-12-11 04:42:15 - rag_system.core.utils.cache - INFO - Response cache initialized with 0 entries
+2025-12-11 04:42:16 - rag_system.core.utils.embedding_cache - INFO - Embedding cache initialized with 0 entries
+D:\PROJECTS\DocuMentor\rag_system\config\settings.py:102: UserWarning: Running in production mode (debug=False) without API key authentication. Set API_KEY environment variable for security.
+  warnings.warn(
+[FAIL] Import failed: cannot import name 'SmartChunker' from 'rag_system.core.chunking.chunker' (D:\PROJECTS\DocuMentor\rag_system\core\chunking\chunker.py)
+
+Configuration:
+------------------------------
+Testing configuration...
+[PASS] Configuration loaded
+   ChromaDB path: ./data/chroma_db
+   Collection: documents
+
+Vector Store:
+------------------------------
+Testing vector store...
+[FAIL] Vector store test failed: cannot import name 'SmartChunker' from 'rag_system.core.chunking.chunker' (D:\PROJECTS\DocuMentor\rag_system\core\chunking\chunker.py)
+
+Document Processing:
+------------------------------
+Testing document processor...
+[FAIL] Document processor test failed: cannot import name 'SmartChunker' from 'rag_system.core.chunking.chunker' (D:\PROJECTS\DocuMentor\rag_system\core\chunking\chunker.py)
+
+LLM Providers:
+------------------------------
+Testing LLM providers...
+[FAIL] LLM provider test failed: cannot import name 'SmartChunker' from 'rag_system.core.chunking.chunker' (D:\PROJECTS\DocuMentor\rag_system\core\chunking\chunker.py)
+
+API Server:
+------------------------------
+Testing API server...
+[INFO] API server not available
+   Start with: python api_server.py
+
+Performance:
+------------------------------
+Testing system performance...
+[FAIL] Performance test failed: cannot import name 'SmartChunker' from 'rag_system.core.chunking.chunker' (D:\PROJECTS\DocuMentor\rag_system\core\chunking\chunker.py)
+
+==================================================
+TEST RESULTS SUMMARY
+==================================================
+System Imports       | [FAIL]
+Configuration        | [PASS]
+Vector Store         | [FAIL]
+Document Processing  | [FAIL]
+LLM Providers        | [FAIL]
+API Server           | [FAIL]
+Performance          | [FAIL]
+
+Overall: 1/7 tests passed (14.3%)
+Multiple issues detected. Please review failed tests.
+
+To start the system:
+   Web UI: python main.py
+   API Server: python api_server.py
+   Complete System: python launcher.py

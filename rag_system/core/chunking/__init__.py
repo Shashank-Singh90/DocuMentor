@@ -2,6 +2,6 @@
 Document Chunking Module
 """
 
-from .chunker import SmartChunker
+from .chunker import DocumentChunker
 
-__all__ = ['SmartChunker']
+__all__ = ['DocumentChunker']

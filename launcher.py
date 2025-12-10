@@ -115,16 +115,14 @@ class ModernSystemLauncher:
     def show_system_info(self):
         """Display system information and access points."""
         print("=" * 70)
-        print("DOCUMENTOR - AI-POWERED DOCUMENTATION ASSISTANT")
+        print("DOCUMENTOR - DOCUMENTATION ASSISTANT")
         print("=" * 70)
         print("System Features:")
-        print("   - Modern UI with dark/light mode toggle")
-        print("   - Multi-provider AI support (Ollama, OpenAI, etc.)")
-        print("   - Technology-specific filtering (9+ frameworks)")
-        print("   - Smart code generation with context")
-        print("   - Intelligent documentation search")
-        print("   - Real-time web search integration")
-        print("   - Optimized performance and caching")
+        print("   - Multi-provider AI support")
+        print("   - Technology-specific filtering")
+        print("   - Code generation")
+        print("   - Documentation search")
+        print("   - Web search integration")
         print()
         print("Access Points:")
         print(f"   Streamlit UI:  http://127.0.0.1:{self.ui_port}")
@@ -133,7 +131,7 @@ class ModernSystemLauncher:
         print()
         print("Available Technologies:")
         technologies = [
-            "Python 3.13.5", "FastAPI", "Django 5.2",
+            "Python", "FastAPI", "Django",
             "React & Next.js", "Node.js", "PostgreSQL",
             "MongoDB", "TypeScript", "LangChain"
         ]

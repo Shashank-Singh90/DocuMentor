@@ -2,14 +2,14 @@
 Core RAG System Components
 """
 
-from .chunking import SmartChunker
-from .generation import LLMHandler
+from .chunking import DocumentChunker
+from .generation import LLMService
 from .retrieval import VectorStore
 from .utils import get_logger, ResponseCache, EmbeddingCache
 
 __all__ = [
-    'SmartChunker',
-    'LLMHandler',
+    'DocumentChunker',
+    'LLMService',
     'VectorStore',
     'get_logger',
     'ResponseCache',

@@ -24,9 +24,9 @@ import io
 import time
 from pathlib import Path
 
-from rag_system.core import SmartChunker, VectorStore
+from rag_system.core import DocumentChunker, VectorStore
 from rag_system.core.processing import document_processor
-from rag_system.core.generation.llm_handler import enhanced_llm_handler
+from rag_system.core.generation.llm_handler import llm_service
 from rag_system.core.search import web_search_provider
 from rag_system.config import get_settings
 from rag_system.api.middleware.auth import verify_api_key, optional_verify_api_key
@@ -59,11 +59,11 @@ from rag_system.core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Technology mapping for enhanced filtering
+# Technology mapping
 TECHNOLOGY_MAPPING = {
-    'python': 'Python 3.13.5',
+    'python': 'Python 3.13',
     'fastapi': 'FastAPI',
-    'django': 'Django 5.2',
+    'django': 'Django 5.0',
     'react_nextjs': 'React & Next.js',
     'nodejs': 'Node.js',
     'postgresql': 'PostgreSQL',
@@ -72,31 +72,30 @@ TECHNOLOGY_MAPPING = {
     'langchain': 'LangChain'
 }
 
-# Enhanced Pydantic models for API v2
-class EnhancedQuestionRequest(BaseModel):
-    question: str = Field(..., description="The question to ask")
-    search_k: int = Field(default=8, description="Number of results to retrieve")
-    enable_web_search: bool = Field(default=False, description="Enable web search")
-    response_mode: str = Field(default="smart_answer", description="Response mode: smart_answer, code_generation, detailed_sources")
-    technology_filter: Optional[str] = Field(default=None, description="Filter by specific technology")
-    source_filter: Optional[List[str]] = Field(default=None, description="Filter by document sources")
-    temperature: float = Field(default=0.3, description="Response creativity (0.0-1.0)")
-    max_tokens: int = Field(default=800, description="Maximum response length")
-    chunk_overlap: int = Field(default=2, description="Search overlap for better context")
+class QueryRequest(BaseModel):
+    question: str = Field(..., description="The user query")
+    search_k: int = Field(default=8, description="Documents to retrieve")
+    enable_web_search: bool = Field(default=False)
+    response_mode: str = Field(default="smart_answer", description="Mode: smart_answer, code_generation, detailed_sources")
+    technology_filter: Optional[str] = None
+    source_filter: Optional[List[str]] = None
+    temperature: float = Field(default=0.3)
+    max_tokens: int = Field(default=800)
+    chunk_overlap: int = Field(default=2)
 
-class EnhancedCodeGenerationRequest(BaseModel):
-    prompt: str = Field(..., description="Code generation prompt")
-    language: str = Field(default="python", description="Programming language")
-    technology: Optional[str] = Field(default=None, description="Specific technology context")
-    include_context: bool = Field(default=True, description="Include relevant documentation context")
-    style: str = Field(default="complete", description="Code style: complete, snippet, explanation")
+class CodeGenerationRequest(BaseModel):
+    prompt: str = Field(..., description="What to build")
+    language: str = Field(default="python")
+    technology: Optional[str] = None
+    include_context: bool = True
+    style: str = "complete"
 
 class TechnologyFilterRequest(BaseModel):
-    technology: str = Field(..., description="Technology to filter by")
-    question: str = Field(..., description="Question within technology context")
-    mode: str = Field(default="smart", description="Response mode: smart, code, detailed")
+    technology: str
+    question: str
+    mode: str = "smart"
 
-class EnhancedQuestionResponse(BaseModel):
+class QueryResponse(BaseModel):
     answer: str
     sources: List[Dict[str, Any]]
     response_time: float
@@ -106,7 +105,7 @@ class EnhancedQuestionResponse(BaseModel):
     response_mode: str
     search_metadata: Dict[str, Any]
 
-class EnhancedSystemStatus(BaseModel):
+class SystemStatus(BaseModel):
     status: str
     providers: Dict[str, bool]
     document_count: int
@@ -121,72 +120,53 @@ class TechnologyStatsResponse(BaseModel):
     sample_content: List[str]
     topics_covered: List[str]
 
-def create_enhanced_fastapi_app() -> FastAPI:
-    """Create and configure enhanced FastAPI application v2 with production features"""
+def create_app() -> FastAPI:
+    """Create and configure FastAPI application"""
 
-    # Initialize components
     settings = get_settings()
 
     app = FastAPI(
         title="DocuMentor API",
-        description="Production-Ready AI Documentation Assistant API with Authentication, Rate Limiting, and Monitoring",
+        description="API for Documentation Assistant",
         version="2.0.0",
         docs_url="/docs",
         redoc_url="/redoc"
     )
 
-    # Initialize rate limiter
     limiter = Limiter(key_func=get_remote_address)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Configure CORS with secure defaults
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,  # Configured via environment variables
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
 
-    # Initialize core components
     vector_store = VectorStore()
-    chunker = SmartChunker()
+    chunker = DocumentChunker()
 
-    logger.info("FastAPI application initialized with production features")
-    logger.info(f"Authentication: {'Enabled' if settings.api_key else 'Disabled'}")
-    logger.info(f"Rate limiting: Enabled")
-    logger.info(f"Metrics: Enabled at /metrics")
+    logger.info("API initialized")
 
     @app.get("/", tags=["General"])
     async def root():
-        """Enhanced API root endpoint"""
         return {
-            "message": "DocuMentor API - AI Documentation Assistant",
+            "message": "DocuMentor API",
             "version": "2.0.0",
-            "features": [
-                "Smart Documentation Search",
-                "AI-Powered Code Generation",
-                "Technology-Specific Filtering",
-                "Dark/Light Mode Support",
-                "Real-time Web Search"
-            ],
-            "docs": "/docs",
             "status": "/status",
-            "technologies": "/technologies"
         }
 
-    @app.get("/status", response_model=EnhancedSystemStatus, tags=["General"])
-    async def get_enhanced_status():
-        """Get enhanced system status and capabilities"""
+    @app.get("/status", response_model=SystemStatus, tags=["General"])
+    async def get_status():
+        """Get system status"""
         try:
             stats = vector_store.get_collection_stats()
-            provider_status = enhanced_llm_handler.get_provider_status()
-
-            # Update metrics
+            provider_status = llm_service.get_provider_status()
             update_vector_store_size(stats.get('total_chunks', 0))
 
-            return EnhancedSystemStatus(
+            return SystemStatus(
                 status="operational",
                 providers=provider_status,
                 document_count=stats.get('total_chunks', 0),
@@ -197,45 +177,27 @@ def create_enhanced_fastapi_app() -> FastAPI:
             )
         except Exception as e:
             logger.error(f"Status check failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/metrics", tags=["Monitoring"])
     async def get_metrics():
-        """
-        Prometheus-compatible metrics endpoint
-        Tracks API requests, LLM usage, cache performance, and more
-        """
-        metrics_output = generate_latest()
-        return Response(content=metrics_output, media_type=CONTENT_TYPE_LATEST)
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/technologies", tags=["Technologies"])
     async def list_technologies():
-        """List all available technologies with stats"""
+        """List available technologies"""
         try:
             stats = vector_store.get_collection_stats()
             technologies = []
 
             for tech_key, tech_name in TECHNOLOGY_MAPPING.items():
-                # Get technology-specific chunks
-                try:
-                    tech_filter = {"technology": tech_key}
-                    tech_results = vector_store.search("overview", k=3, filter_dict=tech_filter)
-
-                    technologies.append({
-                        "key": tech_key,
-                        "name": tech_name,
-                        "available": len(tech_results) > 0,
-                        "sample_topics": [r.get('content', '')[:100] + "..." for r in tech_results[:2]]
-                    })
-                except Exception as e:
-                    # Log the error but continue processing other technologies
-                    logger.warning(f"Failed to check technology {tech_name}: {e}")
-                    technologies.append({
-                        "key": tech_key,
-                        "name": tech_name,
-                        "available": False,
-                        "sample_topics": []
-                    })
+                tech_filter = {"technology": tech_key}
+                tech_results = vector_store.search("overview", k=1, filter_dict=tech_filter)
+                technologies.append({
+                    "key": tech_key,
+                    "name": tech_name,
+                    "available": len(tech_results) > 0
+                })
 
             return {
                 "total_technologies": len(TECHNOLOGY_MAPPING),
@@ -243,55 +205,31 @@ def create_enhanced_fastapi_app() -> FastAPI:
                 "total_chunks": stats.get('total_chunks', 0)
             }
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to list technologies: {str(e)}")
-
+            raise HTTPException(status_code=500, detail=str(e))
+    
     @app.get("/technologies/{technology}/stats", response_model=TechnologyStatsResponse, tags=["Technologies"])
     async def get_technology_stats(technology: str):
-        """Get detailed stats for a specific technology"""
-        try:
-            if technology not in TECHNOLOGY_MAPPING:
-                raise HTTPException(status_code=404, detail=f"Technology '{technology}' not found")
+        if technology not in TECHNOLOGY_MAPPING:
+            raise HTTPException(status_code=404, detail="Technology not found")
+            
+        tech_filter = {"technology": technology}
+        results = vector_store.search("", k=5, filter_dict=tech_filter)
+        
+        return TechnologyStatsResponse(
+            technology=TECHNOLOGY_MAPPING[technology],
+            chunk_count=len(results),
+            sample_content=[r.get('content', '')[:100] for r in results],
+            topics_covered=[]
+        )
 
-            tech_filter = {"technology": technology}
-            tech_results = vector_store.search("", k=10, filter_dict=tech_filter)
-
-            # Extract topics from content
-            topics = set()
-            sample_content = []
-
-            for result in tech_results:
-                content = result.get('content', '')
-                sample_content.append(content[:200] + "...")
-
-                # Simple topic extraction (you could enhance this)
-                words = content.lower().split()
-                for word in words:
-                    if len(word) > 5 and word.isalpha():
-                        topics.add(word)
-
-            return TechnologyStatsResponse(
-                technology=TECHNOLOGY_MAPPING[technology],
-                chunk_count=len(tech_results),
-                sample_content=sample_content[:5],
-                topics_covered=list(topics)[:10]
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get technology stats: {str(e)}")
-
-    @app.post("/ask/enhanced", response_model=EnhancedQuestionResponse, tags=["Enhanced Q&A"])
+    @app.post("/ask", response_model=QueryResponse, tags=["Q&A"])
     @limiter.limit(f"{RATE_LIMIT_QUERY}/minute")
-    async def ask_enhanced_question(http_request: Request, request: EnhancedQuestionRequest):
-        """Ask a question with enhanced features and filtering"""
+    async def ask_question(http_request: Request, request: QueryRequest):
+        """Ask a question"""
         try:
-            import time
             start_time = time.time()
-
-            # Build combined filter
             combined_filter = {}
 
-            # Add technology filter
             if request.technology_filter and request.technology_filter in TECHNOLOGY_MAPPING:
                 combined_filter = {
                     "$and": [
@@ -300,14 +238,11 @@ def create_enhanced_fastapi_app() -> FastAPI:
                     ]
                 }
 
-            # Add source filter
             if request.source_filter:
-                if "source" not in combined_filter:
-                    combined_filter["source"] = {"$in": request.source_filter}
+                combined_filter["source"] = {"$in": request.source_filter}
 
             filter_dict = combined_filter if combined_filter else None
-
-            # Enhanced search with overlap
+            
             search_results = []
             if request.response_mode != "web_only":
                 search_results = vector_store.search(
@@ -316,83 +251,44 @@ def create_enhanced_fastapi_app() -> FastAPI:
                     filter_dict=filter_dict
                 )
 
-            # Add web search if enabled
             if request.enable_web_search:
-                web_results = web_search_provider.search_web(request.question, max_results=3)
-                search_results.extend(web_results)
+                search_results.extend(web_search_provider.search_web(request.question, max_results=3))
 
-            # Generate enhanced response based on mode
             if request.response_mode == "code_generation":
-                # Enhanced code generation
-                tech_context = ""
-                if request.technology_filter:
-                    tech_name = TECHNOLOGY_MAPPING.get(request.technology_filter, request.technology_filter)
-                    tech_context = f"Focus on {tech_name} implementation. "
-
-                code_prompt = f"{tech_context}Provide a complete, working code implementation for: {request.question}"
-                answer = enhanced_llm_handler.generate_code(code_prompt, "python", search_results[:5])
-
-                # Format code response
+                prompt = f"Provide a complete code implementation for: {request.question}"
+                answer = llm_service.generate_code(prompt, "python", search_results[:5])
                 if "```" not in answer:
                     answer = f"```python\n{answer}\n```"
+            else:
+                answer = llm_service.generate_answer(f"Question: {request.question}", search_results)
 
-            elif request.response_mode == "detailed_sources":
-                # Generate answer with detailed source focus
-                detailed_prompt = f"Provide a comprehensive answer with specific references to documentation. Include examples and detailed explanations. Question: {request.question}"
-                answer = enhanced_llm_handler.generate_answer(detailed_prompt, search_results)
-
-            else:  # smart_answer
-                # Enhanced smart answer
-                smart_prompt = f"Provide a clear, practical answer with examples when helpful. Be comprehensive but concise. Question: {request.question}"
-                answer = enhanced_llm_handler.generate_answer(smart_prompt, search_results)
-
-            response_time = time.time() - start_time
-
-            return EnhancedQuestionResponse(
+            return QueryResponse(
                 answer=answer,
                 sources=search_results,
-                response_time=response_time,
-                provider_used=enhanced_llm_handler.current_provider,
+                response_time=time.time() - start_time,
+                provider_used=llm_service.current_provider,
                 source_count=len(search_results),
-                technology_context=TECHNOLOGY_MAPPING.get(request.technology_filter) if request.technology_filter else None,
+                technology_context=TECHNOLOGY_MAPPING.get(request.technology_filter),
                 response_mode=request.response_mode,
-                search_metadata={
-                    "filter_used": filter_dict is not None,
-                    "overlap_chunks": request.chunk_overlap,
-                    "web_search_enabled": request.enable_web_search
-                }
+                search_metadata={"web_search": request.enable_web_search}
             )
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Enhanced question processing failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/generate-code/enhanced", tags=["Enhanced Code Generation"])
+    @app.post("/generate-code", tags=["Code Generation"])
     @limiter.limit(f"{RATE_LIMIT_GENERATION}/minute")
-    async def generate_enhanced_code(http_request: Request, request: EnhancedCodeGenerationRequest):
-        """Generate code with enhanced technology context"""
+    async def generate_code(http_request: Request, request: CodeGenerationRequest):
+        """Generate code"""
         try:
-            # Get enhanced context
             context = []
             if request.include_context:
                 search_query = f"{request.language} {request.prompt}"
-                if request.technology:
-                    search_query = f"{request.technology} {search_query}"
-                    filter_dict = {"technology": request.technology} if request.technology in TECHNOLOGY_MAPPING else None
-                else:
-                    filter_dict = None
-
+                filter_dict = {"technology": request.technology} if request.technology in TECHNOLOGY_MAPPING else None
                 context = vector_store.search(search_query, k=5, filter_dict=filter_dict)
 
-            # Enhanced code generation prompt
-            if request.technology and request.technology in TECHNOLOGY_MAPPING:
-                tech_name = TECHNOLOGY_MAPPING[request.technology]
-                enhanced_prompt = f"Generate {request.style} {request.language} code for {tech_name}. Request: {request.prompt}"
-            else:
-                enhanced_prompt = f"Generate {request.style} {request.language} code. Request: {request.prompt}"
-
-            # Generate code
-            code = enhanced_llm_handler.generate_code(
-                enhanced_prompt,
+            code = llm_service.generate_code(
+                f"Generate {request.style} {request.language} code. Request: {request.prompt}",
                 request.language,
                 context
             )
@@ -400,14 +296,13 @@ def create_enhanced_fastapi_app() -> FastAPI:
             return {
                 "code": code,
                 "language": request.language,
-                "technology": TECHNOLOGY_MAPPING.get(request.technology) if request.technology else "General",
-                "style": request.style,
+                "technology": TECHNOLOGY_MAPPING.get(request.technology, "General"),
                 "context_used": len(context),
-                "provider": enhanced_llm_handler.current_provider
+                "provider": llm_service.current_provider
             }
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Enhanced code generation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/technology-query", tags=["Technology Queries"])
     @limiter.limit(f"{RATE_LIMIT_QUERY}/minute")
@@ -537,5 +432,5 @@ def create_enhanced_fastapi_app() -> FastAPI:
 
     return app
 
-# Create the enhanced FastAPI app instance
-app = create_enhanced_fastapi_app()
+# Create the FastAPI app instance
+app = create_app()

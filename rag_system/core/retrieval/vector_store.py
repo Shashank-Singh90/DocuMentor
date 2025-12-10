@@ -43,15 +43,15 @@ class ChromaVectorStore:
             base_embedding = embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="all-MiniLM-L6-v2"
             )
-            self.embedding_function = CachedEmbeddingFunction(
+            self.embedding_function = EmbeddingService(
                 base_embedding,
                 model_name="all-MiniLM-L6-v2"
             )
-            logger.info("Using optimized sentence-transformers with embedding cache")
+            logger.info("Using sentence-transformers with caching")
         except Exception as e:
-            logger.warning(f"Failed to load sentence-transformers, falling back to default: {e}")
+            logger.warning(f"Using default embeddings: {e}")
             base_embedding = embedding_functions.DefaultEmbeddingFunction()
-            self.embedding_function = CachedEmbeddingFunction(
+            self.embedding_function = EmbeddingService(
                 base_embedding,
                 model_name="default"
             )
@@ -328,16 +328,15 @@ class ChromaVectorStore:
 
         return clean_texts, clean_metadatas
 
-class CachedEmbeddingFunction:
+class EmbeddingService:
     """Wrapper for embedding function with caching"""
 
     def __init__(self, base_embedding_function, model_name: str = "default"):
         self.base_function = base_embedding_function
         self.model_name = model_name
-        logger.info(f"Initialized cached embedding function for model: {model_name}")
+        logger.info(f"Initialized embedding service: {model_name}")
 
     def name(self) -> str:
-        """Return the name of the embedding function"""
         return f"cached_{self.model_name}"
 
     def __call__(self, input: List[str]) -> List[List[float]]:

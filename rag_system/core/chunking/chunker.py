@@ -14,7 +14,7 @@ settings = get_settings()
 
 logger = get_logger(__name__)
 
-class SmartChunker:
+class DocumentChunker:
     def __init__(
         self,
         chunk_size: int = None,
@@ -25,7 +25,7 @@ class SmartChunker:
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
         self.preserve_code_blocks = preserve_code_blocks
         
-        logger.info(f"Initialized SmartChunker: chunk_size={self.chunk_size}, overlap={self.chunk_overlap}")
+        logger.info(f"Initialized DocumentChunker: size={self.chunk_size}, overlap={self.chunk_overlap}")
         
         # Different splitters for different content types
         self.markdown_splitter = self._create_markdown_splitter()
@@ -101,7 +101,7 @@ class SmartChunker:
         with ThreadPoolExecutor(max_workers=settings.max_workers) as executor:
             for i in range(0, len(documents), batch_size):
                 batch = documents[i:i + batch_size]
-                logger.info(f"🔪 Processing batch {i//batch_size + 1}/{(len(documents) + batch_size - 1)//batch_size}")
+                logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents) + batch_size - 1)//batch_size}")
 
                 # Submit batch to thread pool
                 futures = [
@@ -115,19 +115,19 @@ class SmartChunker:
                         chunks = future.result(timeout=30)  # 30 second timeout per document
                         all_chunks.extend(chunks)
                     except Exception as e:
-                        logger.error(f"❌ Failed to chunk document: {e}")
+                        logger.error(f"Failed to chunk document: {e}")
                         continue
 
-        logger.info(f"✅ Created {len(all_chunks)} chunks from {len(documents)} documents using parallel processing")
+        logger.info(f"Created {len(all_chunks)} chunks from {len(documents)} documents using parallel processing")
         return all_chunks
 
     def _chunk_document_safe(self, document: Dict, doc_index: int) -> List[Dict]:
         """Thread-safe wrapper for chunking a single document"""
         try:
-            logger.debug(f"🔪 Chunking document {doc_index}: {document.get('title', 'Untitled')}")
+            logger.debug(f"Chunking document {doc_index}: {document.get('title', 'Untitled')}")
             return self.chunk_document(document)
         except Exception as e:
-            logger.error(f"❌ Error chunking document {doc_index}: {e}")
+            logger.error(f"Error chunking document {doc_index}: {e}")
             return []
         
     def chunk_document(self, document: Dict) -> List[Dict]:

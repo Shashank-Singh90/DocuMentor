@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced RAG System v2 - Main Entry Point
-Advanced version with improved performance and features
+DocuMentor - Main Entry Point
 """
 
 import sys
@@ -48,12 +47,11 @@ def main():
 
     print(f">> Starting DocuMentor on port {args.port}")
     print("Features:")
-    print("  >> Smart documentation search and analysis")
-    print("  >> AI-powered code generation with context")
-    print("  >> Technology-specific filtering (9+ frameworks)")
-    print("  >> Real-time web search integration")
-    print("  >> Modern UI with dark/light mode toggle")
-    print("  >> Multi-provider AI support (Ollama, OpenAI, etc)")
+    print("  >> Documentation search and analysis")
+    print("  >> Code generation with context")
+    print("  >> Technology-specific filtering")
+    print("  >> Web search integration")
+    print("  >> Multi-provider AI support (Ollama, OpenAI, Gemini)")
     print(f"\n>> Open your browser to: http://127.0.0.1:{args.port}")
     print("=" * 60)
 

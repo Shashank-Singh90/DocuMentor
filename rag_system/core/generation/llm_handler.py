@@ -242,8 +242,8 @@ Explanation:"""
 
         return self.generate_response(explain_prompt, [])
 
-class EnhancedLLMHandler(CodeGenerationMixin):
-    """Enhanced LLM handler with multiple provider support"""
+class LLMService(CodeGenerationMixin):
+    """Service for handling LLM interactions with multiple providers"""
 
     def __init__(self):
         self.providers = {
@@ -253,7 +253,7 @@ class EnhancedLLMHandler(CodeGenerationMixin):
         }
 
         self.current_provider = settings.default_llm_provider
-        logger.info(f"Enhanced LLM Handler initialized with provider: {self.current_provider}")
+        logger.info(f"LLM Service initialized with provider: {self.current_provider}")
 
     def set_provider(self, provider_name: str) -> bool:
         """Set the active LLM provider"""
@@ -271,41 +271,30 @@ class EnhancedLLMHandler(CodeGenerationMixin):
 
     def get_available_providers(self) -> List[str]:
         """Get list of available providers"""
-        available = []
-        for name, provider in self.providers.items():
-            if provider.is_available():
-                available.append(name)
-        return available
+        return [name for name, p in self.providers.items() if p.is_available()]
 
     def generate_answer(self, question: str, search_results: List[Dict]) -> str:
         """Generate answer using the current provider"""
         provider = self.providers.get(self.current_provider)
 
-        if not provider:
-            return f"Error: Provider {self.current_provider} not found"
-
-        if not provider.is_available():
-            # Try to fallback to an available provider
-            available_providers = self.get_available_providers()
-            if available_providers:
-                fallback_provider = available_providers[0]
-                logger.warning(f"Provider {self.current_provider} unavailable, using {fallback_provider}")
-                provider = self.providers[fallback_provider]
-            else:
+        if not provider or not provider.is_available():
+            # Fallback
+            available = self.get_available_providers()
+            if not available:
                 return "Error: No LLM providers are available"
+            self.current_provider = available[0]
+            provider = self.providers[self.current_provider]
+            logger.warning(f"Using fallback provider: {self.current_provider}")
 
         return provider.generate_response(question, search_results)
 
     def generate_response(self, prompt: str, context: List[Dict]) -> str:
-        """Generate response (for CodeGenerationMixin compatibility)"""
+        """Generate response (wrapper)"""
         return self.generate_answer(prompt, context)
 
     def get_provider_status(self) -> Dict[str, bool]:
         """Get status of all providers"""
-        status = {}
-        for name, provider in self.providers.items():
-            status[name] = provider.is_available()
-        return status
+        return {name: p.is_available() for name, p in self.providers.items()}
 
 # Global instance
-enhanced_llm_handler = EnhancedLLMHandler()
+llm_service = LLMService()

@@ -1,0 +1,98 @@
+/* Main App Styling */
+.stApp {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+/* Header */
+.main-header {
+  text-align: center;
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+}
+
+.main-header h1 {
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+/* Sidebar Components */
+.sidebar-section {
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  margin-bottom: 1rem;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* Cards */
+.source-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  background-color: white;
+}
+
+.dark-mode .source-card {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+/* Status Indicators */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.status-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.status-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* Tech Badges */
+.tech-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+}
+
+.dark-mode .tech-badge {
+  background-color: #312e81;
+  color: #e0e7ff;
+}
+
+/* Chat Messages */
+.chat-message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+}
+
+.dark-mode .chat-message {
+  background-color: #262626;
+  border-color: #333;
+}
